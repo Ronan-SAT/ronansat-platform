@@ -1,7 +1,6 @@
 // Giao diện bài test
 // Nhiệm vụ: Tải list câu hỏi, hiển thị timer đếm ngược, cho phép user chọn đáp án, flag câu cần check lại, tự động tính điểm và gửi kết quả về máy chủ khi nộp bài
 
-
 "use client";    // Tương tác với user
 
 import { useState, useEffect } from "react";
@@ -31,15 +30,32 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
 
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);     // biến nhớ cho nút bật/tắt desmos
 
+    const [modules, setModules] = useState<any[]>([]);       // Biến mới: Chứa 4 khúc của bài test
+    const [currentModuleIndex, setCurrentModuleIndex] = useState(0); // Biến mới: Nhớ xem đang ở khúc nào (0, 1, 2, 3)
+   
+    const [currentStageIndex, setCurrentStageIndex] = useState(0); // 0 đến 3 tương ứng với 4 module
+
+    const testStages = [
+        { section: "Reading and Writing", module: 1, duration: 32 * 60 }, // 32 phút
+        { section: "Reading and Writing", module: 2, duration: 32 * 60 },
+        { section: "Math", module: 1, duration: 35 * 60 },   // 35 phút
+        { section: "Math", module: 2, duration: 35 * 60 },
+    ];
+
+    const currentStage = testStages[currentStageIndex];
+    const currentModuleQuestions = questions.filter(
+        (q) => q.section === currentStage.section && q.module === currentStage.module
+    );
+
     useEffect(() => {
         const fetchQuestions = async () => {
             try {
                 const res = await api.get(API_PATHS.getQuestionsByTestId(testId));     // gửi yêu cầu GET các câu hỏi của testId đó
                 const data = res.data;    // Lấy data từ kết quả
 
-                const minutes = 60;                                                       // need to fix cho đổi thời gian phụ thuộc loại section Verbal hay Math
                 setQuestions(data.questions || []);    // Lưu danh sách questions vừa lấy được vào biến nhớ để hiện lên màn hình, k lấy dược thì trả về mảng rỗng tránh lỗi
-                setTimeRemaining(minutes * 60);        // Set thời gian còn lại là 3600 giây = 60 phút
+                // FIX: Thay vì mặc định 60 phút, lấy duration của chặng đầu tiên
+                setTimeRemaining(testStages[0].duration);        
 
                 sessionStorage.setItem('testName', 'Practice Test');    // sessionStorage lưu vào bộ nhớ của phiên đăng nhập đó, thông tin đc lưu bị vứt ngay khi tắt tab trên trình duyệt
                                       // testName là tên nhãn, nội dung là 'Practice Test'  -> Lưu để sau này, khi đến trang  review kết quả chỉ cần mở tìm nhãn testName là có ngay, k cần gọi máy chủ hỏi lại tên
@@ -58,8 +74,6 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
     useEffect(() => {
         if (loading || timeRemaining <= 0) return;    // nếu đang load or hết thời gian rồi thì k hiện timer
 
-
-
         // setInterval(() => { ... }, 1000) -> Cứ mỗi 1000 milisecond = 1 giây thì thực hiện lệnh trong ... 1 lần
         const interval = setInterval(() => {
             setTimeRemaining((prev) => {          // prev là số giây trước đó
@@ -77,7 +91,6 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
     }, [loading, timeRemaining]);                   // Hàm này để mắt tới 2 yếu tố: đã tải xong đề thi chưa và mỗi khi thời gian còn lại thay đổi
 
 
-
 // dưới là 5 thao tác user có thể làm khi làm bài thi
 
     const handleAnswerSelect = (questionId: string, choice: string) => {    // ghi nhận đáp án được chọn
@@ -91,8 +104,8 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
     };
 
     const handleNext = () => {          // Khi ấn Next sang câu tiếp theo
-        if (currentIndex < questions.length - 1) setCurrentIndex(currentIndex + 1);   // chuyển index sang câu tiếp theo = cách +1 vào index hiện tại
-            // Check xem nếu đang là câu cuối thì không Next được 
+        // FIX: Check theo độ dài của module hiện tại thay vì toàn bộ đề thi
+        if (currentIndex < currentModuleQuestions.length - 1) setCurrentIndex(currentIndex + 1);   // chuyển index sang câu tiếp theo = cách +1 vào index hiện tại
     };
 
     const handlePrev = () => {
@@ -105,17 +118,23 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
         // Nhảy tới 1 câu bất kỳ k cần kiểm tra đầu or cuối
     };
 
-
-
    //Gói các câu trả lời -> Đối chiếu với đáp án đúng để tính điểm -> Nhân 1600 để ra số điểm -> Gửi kết quả cho BE -> Điều hướng tới trang xem kết quả
-   // Need to fix: Cách tính điểm Sai với SAT
-
     const handleSubmit = async () => {
+        // FIX: Tách logic Nộp Module và Nộp toàn bộ bài
+        if (currentStageIndex < 3) {
+            // Đang ở chặng 1, 2, 3 -> Nộp Module, chuyển qua chặng tiếp theo
+            const nextStageIndex = currentStageIndex + 1;
+            setCurrentStageIndex(nextStageIndex);
+            setCurrentIndex(0); // Reset về câu 1 của module mới
+            setTimeRemaining(testStages[nextStageIndex].duration); // Reset đồng hồ bằng duration của chặng mới
+            return; // Dừng tại đây, không post dữ liệu cho tới chặng cuối
+        }
+
+        // Nếu qua chặng 3 (Math 2) -> Nộp toàn bộ bài
         try {
-            
            // formated answer đang ở dạng array, từng ô là chứa các object bao gồm 3 thông tin của từng câu
             const formattedAnswers = questions.map(q => {      // Đi qua từng câu
-                const userAns = answers[q._id] || "";    // Lấy đáp án của user, nếu l chọn thì lấy rỗng 
+                const userAns = answers[q._id] || "Omitted";    // Lấy đáp án của user, nếu l chọn thì lấy rỗng 
                 return {
                     questionId: q._id,                // Lưu lại thông tin câu hỏi nào
                     userAnswer: userAns,              // ans của user
@@ -170,12 +189,13 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
     }
 
     // Qua 2 chốt trên => Dữ liệu đã tải xong và chắc chắn có câu hỏi
-    const currentQuestion = questions[currentIndex];    // lấy câu hỏi hiện tại để display bằng hàm dưới
+    // FIX: Lấy câu hỏi hiện tại từ module hiện tại chứ không lấy từ toàn bộ mảng gốc
+    const currentQuestion = currentModuleQuestions[currentIndex] || questions[0];    // lấy câu hỏi hiện tại để display bằng hàm dưới
 
     return (
         <div className="min-h-screen flex flex-col bg-white overflow-hidden relative selection:bg-yellow-200">
             <TestHeader         // Phần header trên bài test có: Tên section (Verbal or Math), Đồng hồ tgian còn lại, gọi hàm handleSubmit khi hết giờ
-                sectionName={currentQuestion.section || "Section 1"}
+                sectionName={`${currentStage.section} - Module ${currentStage.module}`} // Hiện kèm tên module đang làm
                 timeRemaining={timeRemaining}
                 onTimeUp={handleSubmit}    // hàm xử lý khi hết giờ thì submit, onTimeUp chỉ là tên (ở phần khai báo thì nó là 1 hàm để truyền được handleSubmit vào), handleSubmit mới là bộ não, biết hết giờ và gửi
                 isTimerHidden={isTimerHidden}           // Đây là component con k dùng logic để bật tắt timer mà chỉ nhạn tín hiệu từ component cha là TestLayout
@@ -199,7 +219,6 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
                 />
             </main>
 
-
             <div className="fixed top-3 right-6 z[60px]">
                 <Popconfirm                             // Pop up confirm user có muốn submit khi ấn submit hay k, đề phòng lỡ thay
                     title="Submit Test"
@@ -215,19 +234,18 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
                 </Popconfirm>
             </div>
 
-
             {/** Đây là mục  để di chuyển giữa các câu, và là cả thanh ở dưới trang, có nút next prev 
              * Đang thiếu Tên: FIX
             */}
             <TestFooter                              // Truyền tham số và hàm cho component con TestFooter
                 currentIndex={currentIndex}           // Báo cho biết đây là câu số mấy
-                totalQuestions={questions.length}     // Tổng sổ câu
+                totalQuestions={currentModuleQuestions.length}     // FIX: Tổng sổ câu giới hạn trong Module hiện tại
                 onNext={handleNext}                   // hàm xử lý các nút next prev và jump
                 onPrev={handlePrev}
                 onJump={handleJump} 
                 answers={answers}                     // Truyền vào các câu đã chọn để hiển thị màu khác các câu chưa chọn
                 flagged={flagged}                     // Lấy thông tin các câu đã flag để hiện lên mục di chuyển giữa các câu
-                questions={questions}                 // Giao toàn bộ danh sách các câu hỏi -> Vì cần biết bao nhiêu câu để vẽ số ô
+                questions={currentModuleQuestions}    // FIX: Giao danh sách câu hỏi CỦA MODULE HIỆN TẠI để vẽ số ô Grid tương ứng
             />
         </div>
     );

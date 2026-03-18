@@ -16,6 +16,7 @@ Model là Người thực hiện việc cầm bộ luật đi kiểm tra data
 export interface IQuestion extends Document {
     testId: mongoose.Types.ObjectId;    // Mã mà câu này thuộc về
     section: string;                    
+    module: number;           // 1 2   - module 1 or 2
     questionText: string;               // Câu hỏi (Main purpose, ...)
     passage?: string;                   // Passage là đoạn văn rất dài trong Verbal, Math thì k cần cái này mà chỉ cần questionText thôi, ? là optional
     choices: string[];                  // choices là array, từng ô là 1 string
@@ -29,6 +30,7 @@ const QuestionSchema: Schema<IQuestion> = new Schema(
     {
         testId: { type: Schema.Types.ObjectId, ref: "Test", required: true },
         section: { type: String, required: true },
+        module: { type: Number, required: true },
         questionText: { type: String, required: true },
         passage: { type: String, required: false },             // k required vì nó là optional
         choices: [{ type: String, required: true }],

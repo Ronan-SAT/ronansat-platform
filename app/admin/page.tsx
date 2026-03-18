@@ -30,6 +30,7 @@ export default function AdminDashboard() {
     // state này chứa mọi thông tin của 1 câu hỏi
     const [questionForm, setQuestionForm] = useState({
         section: "Reading and Writing",
+        module: 1,
         questionText: "",
         passage: "",
         choices: ["", "", "", ""],      // Bao gồm các lựa chọn
@@ -270,6 +271,21 @@ export default function AdminDashboard() {
                                             <option value="Math">Math</option>
                                         </select>
                                     </div>
+
+                                <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Module</label>
+                                        <select
+                                            value={questionForm.module}      
+                                            // parseInt để ép kiểu string "1" hoặc "2" thành số nguyên (number) trước khi lưu
+                                            onChange={(e) => setQuestionForm({ ...questionForm, module: parseInt(e.target.value) })}   
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-900"
+                                        >
+                                            <option value={1}>Module 1</option>
+                                            <option value={2}>Module 2</option>
+                                        </select>
+                                </div>
+
+
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">Difficulty</label>
                                         <select

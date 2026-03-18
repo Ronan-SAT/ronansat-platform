@@ -27,16 +27,6 @@ export default function TestCard({ test }: { test: Test }) {     // nhận vào 
                     <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-700">
                         {test.title}       {/** In tên bài thi lên góc trái thẻ */}
                     </h3>
-                    <span           // Đổi màu text dựa trên độ khó, easy = xanh, trung bình = cam, hard = đỏ, might need to delete
-                        className={`px-3 py-1 text-xs font-semibold uppercase tracking-wider rounded-full ${test.difficulty === "easy"
-                                ? "bg-green-100 text-green-700"
-                                : test.difficulty === "hard"         
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-amber-100 text-amber-700"
-                            }`}
-                    >
-                        {test.difficulty}    {/** In độ khó */}
-                    </span>  
                 </div>
 
                 <div className="space-y-2 mt-4 text-sm text-slate-600">
@@ -44,10 +34,7 @@ export default function TestCard({ test }: { test: Test }) {     // nhận vào 
                         <Clock className="w-4 h-4 text-slate-400" />
                         <span>{test.timeLimit} Minutes Total</span>   {/** In thời gian */}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-slate-400" />
-                        <span>{test.sections?.length || 0} Sections</span> {/**  need to fix: In số section?, nếu mất dữ liệu section thì in ra 0 thay vì sập */}
-                    </div>
+
                     <div className="flex items-center gap-2">
                         <GraduationCap className="w-4 h-4 text-slate-400" />  
                         <span>{totalQuestions} Questions</span>    {/** In ra tổng có bnh câu hỏi */}

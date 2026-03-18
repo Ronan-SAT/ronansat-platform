@@ -100,7 +100,7 @@ export default function Dashboard() {
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Image src={logo} alt="SATTOT Logo" width={32} height={32} className="rounded object-contain" />
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">SATTOT</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ronan SAT</h1>
           </div>
           <div className="space-x-4">
             <Link href="/auth" className="text-slate-600 hover:text-slate-900 font-medium">

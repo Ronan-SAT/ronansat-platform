@@ -46,7 +46,8 @@ export const chatService = {   // Đóng gói các hàm liên quan tới tính n
             "parts": [{ "_id": "65f1b...", "text": "Xin chào" }],
             "timestamp": "2024-03-17T02:00:00.000Z"
             }
-         */
+         */ 
+         const optionsText = question?.choices ? JSON.stringify(question.choices, null, 2) : "Unknown";
 
 
 
@@ -56,6 +57,7 @@ export const chatService = {   // Đóng gói các hàm liên quan tới tính n
             systemInstruction: `You are an expert, encouraging SAT tutor. 
             The student is reviewing a practice question they took.
             The question they are reviewing is: "${question?.questionText || 'Unknown'}".
+            The answer options are: ${optionsText}.
             The correct answer is: "${question?.correctAnswer || 'Unknown'}".
             Their goal is to understand why they got it wrong or learn the underlying concepts.
             Answer their questions pedagogically—guide them to the answer rather than just giving it away.

@@ -8,6 +8,7 @@ import { z } from "zod";  // Thư viện kiểm tra format rất kỹ càng
 export const QuestionValidationSchema = z.object({            // Tạo bộ luật kiểm tra 1 object
     testId: z.string().min(1, "Test ID is required"),                            // Yêu cầu phải có id dạng string, min 1 ký tự, không có thì báo lỗi trong ""
     section: z.string().min(1, "Section is required"),
+    module: z.number().min(1).default(1),              // module 1 2
     questionText: z.string().min(1, "Question text is required"),
     passage: z.string().optional(),
     choices: z.array(z.string()).min(2, "At least two choices are required"),    // data phải là 1 array, từng phần tử của array phải  là string, array đó phải chứa ít nhất 2 phần tử là 2 đáp án
