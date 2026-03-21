@@ -82,14 +82,6 @@ export default function Navbar() {
                             Review Mistakes
                         </Link>
 
-                        <Link
-                            href="/grid-review" // Đường dẫn tới trang mới
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/grid-review" ? "text-blue-600" : "text-slate-600"}`}
-                        >
-                            <LayoutGrid className="w-4 h-4" />
-                            Grid Review
-                        </Link>
-
 
 
                          <Link 
