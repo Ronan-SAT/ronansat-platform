@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@cloudinary/react": "^1.14.4",
+    "@cloudinary/url-gen": "^1.22.0",
     "@google/generative-ai": "^0.24.1",
     "@sentry/nextjs": "^10.45.0",
     "antd": "^6.3.1",

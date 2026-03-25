@@ -1,5 +1,4 @@
-// File: components/StudentCard.tsx
-import Image from "next/image";
+import { CldImage } from 'next-cloudinary'; // Sử dụng next-cloudinary để nén ảnh
 
 interface StudentProps {
     name: string;
@@ -11,11 +10,13 @@ interface StudentProps {
 
 export default function StudentCard({ name, school, score, examDate, imageUrl }: StudentProps) {
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col h-[400px]">
-            {/* Phần ảnh chiếm phần trên của thẻ */}
-            <div className="relative h-3/5 w-full bg-slate-100">
-                <Image
-                    src={imageUrl}
+        // Đổi h-[400px] thành h-full để các thẻ trong grid tự động bằng nhau
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02] overflow-hidden flex flex-col h-full">
+            
+            {/* Phần ảnh: Dùng h-60 (hoặc aspect-[4/3]) và shrink-0 để không bị chèn ép */}
+            <div className="relative h-60 w-full bg-slate-50 shrink-0 border-b border-slate-100">
+                <CldImage
+                    src={imageUrl} 
                     alt={`Ảnh của ${name}`}
                     fill
                     className="object-cover"
@@ -23,11 +24,12 @@ export default function StudentCard({ name, school, score, examDate, imageUrl }:
                 />
             </div>
 
-            {/* Phần thông tin chiếm phần dưới */}
-            <div className="p-5 flex flex-col justify-between flex-1 text-center">
+            {/* Phần thông tin */}
+            <div className="p-5 flex flex-col justify-between flex-1 text-center bg-white">
                 <div>
                     <h3 className="text-xl font-bold text-slate-800 mb-1">{name}</h3>
-                    <p className="text-sm font-medium text-slate-500 mb-2">{school}</p>
+                    {/* Thêm line-clamp-2 để nếu tên trường quá dài sẽ tự hiện dấu ... */}
+                    <p className="text-sm font-medium text-slate-500 mb-4 line-clamp-2">{school}</p>
                 </div>
                 
                 <div className="mt-auto">
