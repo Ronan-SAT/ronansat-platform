@@ -1,9 +1,21 @@
+// hooks/useTestEngine.ts
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+// Import 2 công cụ vừa tách ra
+import { checkIsCorrect } from "@/utils/gradingHelper";
+import { useTimer } from "./useTimer";
+
+// Đưa cấu hình testStages ra ngoài hàm để tránh bị tạo lại nhiều lần (Chuẩn production tối ưu bộ nhớ)
+export const testStages = [
+    { section: "Reading and Writing", module: 1, duration: 32 * 60 }, // 32 phút
+    { section: "Reading and Writing", module: 2, duration: 32 * 60 },
+    { section: "Math", module: 1, duration: 35 * 60 },   // 35 phút
+    { section: "Math", module: 2, duration: 35 * 60 },
+];
 
 export function useTestEngine(testId: string) {
     const router = useRouter();
@@ -21,20 +33,10 @@ export function useTestEngine(testId: string) {
     const [answers, setAnswers] = useState<Record<string, string>>({});    // biến nhớ lưu theo từng cặp, gồm mã câu hỏi và đáp án mà user chọn 
     const [flagged, setFlagged] = useState<Record<string, boolean>>({});   // lưu mã câu hỏi và bool xem user có flag câu đó hay không
 
-    // Timer State  
-    const [timeRemaining, setTimeRemaining] = useState(0);        // Lưu số time còn lại
-    const [isTimerHidden, setIsTimerHidden] = useState(false);    // biến nhớ cho nút bật/tắt timer
-
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);     // biến nhớ cho nút bật/tắt desmos
 
     const [modules, setModules] = useState<any[]>([]);       // Biến mới: Chứa 4 khúc của bài test
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0); // Biến mới: Nhớ xem đang ở khúc nào (0, 1, 2, 3)
-    const testStages = [
-        { section: "Reading and Writing", module: 1, duration: 32 * 60 }, // 32 phút
-        { section: "Reading and Writing", module: 2, duration: 32 * 60 },
-        { section: "Math", module: 1, duration: 35 * 60 },   // 35 phút
-        { section: "Math", module: 2, duration: 35 * 60 },
-    ];  
 
     const [currentStageIndex, setCurrentStageIndex] = useState(() => {
         // Nếu là Sectional, quét mảng testStages tìm đúng index khớp với URL
@@ -50,6 +52,14 @@ export function useTestEngine(testId: string) {
         (q) => q.section === currentStage.section && q.module === currentStage.module
     );
 
+    // GỌI HOOK TIMER (Đã tách riêng)
+    // Truyền thời gian khởi tạo, trạng thái loading, và hàm nộp bài khi hết giờ
+    const { timeRemaining, setTimeRemaining, isTimerHidden, setIsTimerHidden } = useTimer(
+        0, // Sẽ được set chính xác khi gọi API xong
+        loading,
+        () => handleSubmit() // Gọi hàm submit khi hết giờ
+    );
+
     useEffect(() => {
         const fetchQuestions = async () => {
             try {
@@ -58,7 +68,7 @@ export function useTestEngine(testId: string) {
 
                 setQuestions(data.questions || []);    // Lưu danh sách questions vừa lấy được vào biến nhớ để hiện lên màn hình, k lấy dược thì trả về mảng rỗng tránh lỗi
                 // FIX: Thay vì mặc định 60 phút, lấy duration của chặng đầu tiên
-                setTimeRemaining(testStages[0].duration);        
+                setTimeRemaining(testStages[currentStageIndex].duration);        
 
                 sessionStorage.setItem('testName', 'Practice Test');    // sessionStorage lưu vào bộ nhớ của phiên đăng nhập đó, thông tin đc lưu bị vứt ngay khi tắt tab trên trình duyệt
                                       // testName là tên nhãn, nội dung là 'Practice Test'  -> Lưu để sau này, khi đến trang  review kết quả chỉ cần mở tìm nhãn testName là có ngay, k cần gọi máy chủ hỏi lại tên
@@ -71,28 +81,6 @@ export function useTestEngine(testId: string) {
         };
         fetchQuestions();   // gọi hàm 
     }, [testId]);                 // Khi testId thay đổi => cần lấy danh sách câu hỏi của 1 test mới 
-
-    // Timer Countdown
-    // mỗi 1 giây, hàm sẽ trừ 1 giây, nếu về 0 thì sẽ auto nộp bài 
-    useEffect(() => {
-        if (loading || timeRemaining <= 0) return;    // nếu đang load or hết thời gian rồi thì k hiện timer
-
-        // setInterval(() => { ... }, 1000) -> Cứ mỗi 1000 milisecond = 1 giây thì thực hiện lệnh trong ... 1 lần
-        const interval = setInterval(() => {
-            setTimeRemaining((prev) => {          // prev là số giây trước đó
-                if (prev <= 1) {                  // nếu số giây cũ là 1 (giây cuối cùng)
-                    clearInterval(interval);      // Phá bỏ vòng lặp 1 giây ở trên (Tắt đồng hồ để k bị âm giây -1 -2)
-                    handleSubmit();               // nộp bài luôn
-                    return 0;                 // trả về con số hiện lên màn hình là 0 giây
-                }
-                return prev - 1;       // k phải giây cuối => Mỗi giây trừ 1 giây của số giây trước
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);        // Clean up function: nếu hs tắt web thì tắt đồng hồ tránh đồng hồ chạy ngầm tốn ram
-                 // return trong useEffect chạy khi useEffect khởi động lại hoặc ngay trước khi giao diện đóng
-    }, [loading, timeRemaining]);                   // Hàm này để mắt tới 2 yếu tố: đã tải xong đề thi chưa và mỗi khi thời gian còn lại thay đổi
-
 
     // dưới là 5 thao tác user có thể làm khi làm bài thi
 
@@ -134,21 +122,6 @@ export function useTestEngine(testId: string) {
             return; 
         }
 
-        // THÊM MỚI: HÀM KIỂM TRA ĐÁP ÁN ĐÚNG CHO CẢ TRẮC NGHIỆM VÀ TỰ LUẬN
-        const checkIsCorrect = (q: any, userAns: string) => {
-            if (!userAns || userAns === "Omitted") return false;
-            
-            if (q.questionType === "spr") {
-                // Nếu là tự luận, duyệt qua mảng sprAnswers xem có đáp án nào khớp không
-                // .trim() để bỏ khoảng trắng thừa 2 đầu, .toLowerCase() để không phân biệt hoa thường
-                return q.sprAnswers?.some((ans: string) => 
-                    ans && ans.trim().toLowerCase() === userAns.trim().toLowerCase()
-                );
-            }
-            // Nếu là trắc nghiệm thì so sánh thẳng như cũ
-            return userAns === q.correctAnswer;
-        };
-
         // 2. NẾU LÀ SECTIONAL HOẶC ĐÃ ĐẾN CUỐI FULL TEST -> CHẤM ĐIỂM VÀ NỘP BÀI
         try {
           // Chỉ lấy câu hỏi của Module hiện tại nếu đang thi Sectional, ngược lại lấy toàn bộ
@@ -159,7 +132,7 @@ export function useTestEngine(testId: string) {
                 return {
                     questionId: q._id,
                     userAnswer: userAns,
-                    isCorrect: checkIsCorrect(q, userAns) // SỬ DỤNG HÀM KIỂM TRA MỚI Ở ĐÂY
+                    isCorrect: checkIsCorrect(q, userAns) // SỬ DỤNG HÀM KIỂM TRA MỚI Ở ĐÂY (gọi từ file gradingHelper.ts)
                 };
             });
 
