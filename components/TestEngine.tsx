@@ -1,9 +1,6 @@
-// Giao diện bài test
-// Nhiệm vụ: Tải list câu hỏi, hiển thị timer đếm ngược, cho phép user chọn đáp án, flag câu cần check lại, tự động tính điểm và gửi kết quả về máy chủ khi nộp bài
-
 "use client";    // Tương tác với user
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";     // Thi xong thì route sang trang xem điểm
 import { Button, Popconfirm } from "antd";
 import { TestHeader, TestFooter } from "@/components/TestLayout";    // Giao diên header và footer (phần trên và phần dưới trang)
@@ -14,16 +11,13 @@ import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 import { useSearchParams } from "next/navigation";
 
-
-export default function TestEngine({ testId }: { testId: string }) {    // Lấy id của bài test -> Dựa vào id này mới biết bài này thuộc Verbal       hay Math
+export default function TestEngine({ testId }: { testId: string }) {    // Lấy id của bài test -> Dựa vào id này mới biết bài này thuộc Verbal hay Math
     const router = useRouter();
-
 
     const searchParams = useSearchParams();
     const mode = searchParams.get("mode") || "full"; 
     const targetSection = searchParams.get("section"); // vd: "Math"
     const targetModule = searchParams.get("module") ? parseInt(searchParams.get("module") as string) : null; // vd: 2
-
 
     const [testStats, setTestStats] = useState<any>(null);     // lưu thống kê kết quả của bài thi
     const [questions, setQuestions] = useState<any[]>([]);     // danh sách chứa các câu hỏi 
@@ -39,6 +33,35 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
 
     const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);     // biến nhớ cho nút bật/tắt desmos
 
+    // ── THÊM MỚI: Resizable divider state ──────────────────────────────────
+    const [leftWidth, setLeftWidth] = useState(50);          // % chiều rộng left panel, mặc định 50/50
+    const isDragging = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Bắt đầu kéo thanh divider
+    const handleDividerMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        isDragging.current = true;
+
+        const onMouseMove = (e: MouseEvent) => {
+            if (!isDragging.current || !containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const newLeftWidth = ((e.clientX - rect.left) / rect.width) * 100;
+            // Giới hạn từ 20% đến 80% để 2 panel không bị thu quá nhỏ
+            setLeftWidth(Math.min(60, Math.max(30, newLeftWidth)));
+        };
+
+        const onMouseUp = () => {
+            isDragging.current = false;
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("mouseup", onMouseUp);
+        };
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("mouseup", onMouseUp);
+    };
+    // ────────────────────────────────────────────────────────────────────────
+
     const [modules, setModules] = useState<any[]>([]);       // Biến mới: Chứa 4 khúc của bài test
     const [currentModuleIndex, setCurrentModuleIndex] = useState(0); // Biến mới: Nhớ xem đang ở khúc nào (0, 1, 2, 3)
     const testStages = [
@@ -48,15 +71,7 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
                 { section: "Math", module: 2, duration: 35 * 60 },
             ];  
 
-
-
-
-
     const [currentStageIndex, setCurrentStageIndex] = useState(() => {
-
-      
-
-
         // Nếu là Sectional, quét mảng testStages tìm đúng index khớp với URL
         if (mode === "sectional" && targetSection && targetModule) {
             const index = testStages.findIndex(s => s.section === targetSection && s.module === targetModule);
@@ -65,7 +80,6 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
         return 0; // Nếu là full test thì mặc định bắt đầu từ đầu
     });
    
-
     const currentStage = testStages[currentStageIndex];
     const currentModuleQuestions = questions.filter(
         (q) => q.section === currentStage.section && q.module === currentStage.module
@@ -284,18 +298,29 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
                 onClose={() => setIsCalculatorOpen(false)}     // nếu đang tắt thì tắt máy tính đi
             />
 
-            <main className="flex-1 w-full bg-white relative">   
-                <QuestionViewer                                         // Truyền vào các tham số, hàm cho component con QuestionViewer
-                    question={currentQuestion}                          // nội dung câu
-                    userAnswer={answers[currentQuestion._id]}           // hiện đáp án user đã chọn 
-                    onAnswerSelect={handleAnswerSelect}                 // hàm xử lý khi user chọn
-                    isFlagged={!!flagged[currentQuestion._id]}
-                    onToggleFlag={toggleFlag}                           // Hàm xử lý bật tắt cờ
-                    index={currentIndex}                                // Truyền vào index của câu hiện tại cho component QuestionViewer, nó sẽ tự + 1
-                />
-            </main>
-
-          
+           <main
+    ref={containerRef}
+    className="flex-1 w-full bg-white relative overflow-hidden"
+    style={{ userSelect: isDragging.current ? "none" : "auto" }}
+    // THÊM MỚI: Bắt mousedown bubble lên từ #qv-divider bên trong QuestionViewer
+    onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest("#qv-divider")) {
+            handleDividerMouseDown(e);
+        }
+    }}
+>
+    <QuestionViewer
+        question={currentQuestion}
+        userAnswer={answers[currentQuestion._id]}
+        onAnswerSelect={handleAnswerSelect}
+        isFlagged={!!flagged[currentQuestion._id]}
+        onToggleFlag={toggleFlag}
+        index={currentIndex}
+        leftWidth={leftWidth}      // THÊM MỚI: truyền % vào để QuestionViewer tự chia layout
+    />
+</main>
+            {/* ─────────────────────────────────────────────────────────────────────── */}
 
             {/** Đây là mục  để di chuyển giữa các câu, và là cả thanh ở dưới trang, có nút next prev 
              * Đang thiếu Tên: FIX
@@ -312,4 +337,4 @@ export default function TestEngine({ testId }: { testId: string }) {    // Lấy
             />
         </div>
     );
-}
+}   

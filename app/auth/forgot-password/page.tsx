@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
         return null; 
     }
 
-
+    
     
 
     const handleSendCode = async () => {

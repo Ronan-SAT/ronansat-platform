@@ -388,11 +388,10 @@ const [studentForm, setStudentForm] = useState({
 
                                 <div className="space-y-4 pt-4 border-t border-slate-100">
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Passage *</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">Passage</label>
                                         <textarea       // Input chỉ cho gõ ở 1 dòng, textarea cho gõ dài
                                             rows={4}    // Mặc định 4 dòng
                                             value={questionForm.passage}   // update vào passae
-                                            required   
                                             onChange={(e) => setQuestionForm({ ...questionForm, passage: e.target.value })}
                                             placeholder="Text passage for reading questions..."
                                             className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-serif resize-none bg-white text-slate-900"

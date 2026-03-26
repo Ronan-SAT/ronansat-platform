@@ -20,6 +20,7 @@
     "antd": "^6.3.1",
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
+    "katex": "^0.16.43",
     "lucide-react": "^0.575.0",
     "mongodb": "^7.1.0",
     "mongoose": "^9.2.2",
@@ -30,6 +31,7 @@
     "pdf-parse": "^2.4.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-latex-next": "^3.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
