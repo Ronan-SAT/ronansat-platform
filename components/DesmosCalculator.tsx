@@ -16,42 +16,100 @@ declare global {            // Thông báo Desmos dùng được cho mọi file,
 }
 
 export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorProps) {
+
+    const desmosUrl = process.env.NEXT_PUBLIC_DESMOS_URL; 
+    
     // Các bộ nhớ trạng thái 
     const calculatorRef = useRef<HTMLDivElement>(null);            // Đánh dấu vị trí trên trang web để đặt bộ máy Desmos vào        
-    const [calculator, setCalculator] = useState<any>(null);       // Nhớ máy đã đc bật chưa, null là chưa bật còn khi bật thì truyền window.Desmos.GraphingCalculator(...) vào state này => Dữ liệu phức tạp => Use any
+    
+    // Đã sửa thành useRef thay vì useState để tránh lỗi màn hình trắng tinh khi tắt/mở lại
+    const calculatorInst = useRef<any>(null);       // Nhớ máy đã đc bật chưa, null là chưa bật còn khi bật thì truyền window.Desmos.GraphingCalculator(...) vào biến này => Dữ liệu phức tạp => Use any
+    
     const [isExpanded, setIsExpanded] = useState(false);           // Nhớ xem đang phóng to full màn hình k
 
     const [position, setPosition] = useState({ x: 0, y: 0 });      // Nhớ tọa độ của góc trên cùng bên trái của window Desmos
     const [isDragging, setIsDragging] = useState(false);           // Công tắc check chuột có đang drag Desmos không
-    const dragStart = useRef({ x: 0, y: 0 });                      // Ghi nhớ pointer của user cách bảng bao xa
+    const dragStart = useRef({ x: 0, y: 0, baseLeft: 0, baseTop: 0, width: 0 });
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isExpanded) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    
+    setIsDragging(true);
 
-    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {      // Xử lý khi ấn chuột trái, type: HTMLDivElement để báo sự kiện kích chuột (PointerEvent) chỉ xảy ra trong 1 thẻ div
-        if (isExpanded) return;                                                 // phóng to full màn hình rồi => K được kéo mà return, dưới xử lý kéo
-        if ((e.target as HTMLElement).closest('button')) return;                // Xử lý khi ấn nhầm vào X hoặc phóng to/bé và k muốn Drag => e.target là pixel mình vừa ấn, check xem nó có gần các nút đó k, nếu gần thì assume ấn nhầm => K cho drag và return
-                                                                                // e.target có thể là rất nhiều sự kiện (file âm thanh, tab,...) => ép dạng là HTMLElement để đảm bảo nút ấn là 1 phần của giao diện web (HTML) -> Vậy mới dùng được .closest()
-        setIsDragging(true);    // bật công thức báo user đang Drage
-        dragStart.current = {    // update vị trí chuột mới vào bộ trớ, useRef là bộ nhớ tên là dragStart, không thể gán giá trị dragStart = được mà cần mở bộ nhớ  dragStart.current = {}
-            x: e.clientX - position.x,      // Khi drag cửa sổ desmos thường dùng chuột ấn vào giữa -> Sẽ cách lề trái của cửa sổ Desmos 1 khoảng, nếu k lưu khoảng này thì mỗi khi di chuột nó sẽ dính chặt vào lề trên bên trái của cửa sổ desmos 
-            y: e.clientY - position.y        
-        };
+    // 1. Tìm thẻ <div> chứa toàn bộ máy tính Desmos (là thẻ cha của thanh tiêu đề)
+    const modalElement = (e.currentTarget as HTMLElement).parentElement;
+    
+    let baseLeft = 0;
+    let baseTop = 0;
+    let width = 0;
 
-        // Nếu vẩy chuột để con trỏ chạy ra ngoài mép thanh Desmos, mặc định trình duyệt nghĩ handlePointerDown chạy xong rồi, nhấc chuột khỏi Desmos rồi 
-        // e chứa toàn bộ thông tin về cú bấm chuột, 
-        // (e.target as HTMLElement) -> target của cú nhập chuột là thanh tiêu đề (1 HTMLElement), trói thanh đó với chuột (e.pointerId)
-        // pointerId: Trên đth, có thể ấn nhiều ngón 1 lúc, mỗi ngón đc cấp 1 id -> Cấp e.pointerId để biết Capture ngón nào
-        // setPointerCapture để báo cáo mọi cử động của pointer cho thanh tiêu đề kể cả khi vẩy chuột khỏi chỗ đó thì việc kéo vẫn k ảnh hưởng
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);      
+    // 2. Đo đạc kích thước và vị trí gốc
+    if (modalElement) {
+        // getBoundingClientRect() lấy tọa độ thực tế của cửa sổ trên màn hình lúc này
+        const rect = modalElement.getBoundingClientRect();
+        
+        // Trừ đi position.x / position.y đang có để tìm ra vị trí "gốc" khi chưa bị kéo thả
+        baseLeft = rect.left - position.x;
+        baseTop = rect.top - position.y;
+        width = rect.width; // Lấy chiều rộng hiện tại của cửa sổ
+    }
+
+    dragStart.current = {
+        x: e.clientX - position.x,
+        y: e.clientY - position.y,
+        baseLeft: baseLeft,
+        baseTop: baseTop,
+        width: width
     };
+
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+};
 
     //  update vị trí của window desmos liên tục khi user drag
     // e: thông tin sự kiện drag (vị trí mới của pointer)
-    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {  
-        if (!isDragging || isExpanded) return;    // Nếu công tắc báo hiệu drag của handlePointerDown đang tắt or đã expand full màn => return
-        setPosition({                             // vị trí góc trên cùng bên trái của window Desmos
-            x: e.clientX - dragStart.current.x,     // Lấy vị trí hiện tại của chuột (e.clientX ) trừ khoảng cách từ vtri đó tới mép trái tính được ở handlePointerDown
-            y: e.clientY - dragStart.current.y      
-        });
-    };   
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging || isExpanded) return;
+
+    // TÍNH TOÁN DỊCH CHUYỂN TƯƠNG ĐỐI
+    let newX = e.clientX - dragStart.current.x;
+    let newY = e.clientY - dragStart.current.y;
+
+    // Lấy thông tin đã đo đạc ở hàm Down
+    const { baseLeft, baseTop, width } = dragStart.current;
+
+    // TÍNH TOÁN VỊ TRÍ THỰC TẾ TRÊN MÀN HÌNH (TUYỆT ĐỐI)
+    const absoluteLeft = baseLeft + newX;
+    const absoluteTop = baseTop + newY;
+
+    // 1. CHẶN MÉP TRÁI: Không cho mép trái của cửa sổ nhỏ hơn tọa độ 0
+    if (absoluteLeft < 0) {
+        newX = -baseLeft; // Ép dừng ngay tại sát lề trái
+    }
+
+    // 2. CHẶN MÉP PHẢI: Mép trái (absoluteLeft) + Chiều rộng cửa sổ (width) không được lớn hơn chiều rộng màn hình (window.innerWidth)
+    if (absoluteLeft + width > window.innerWidth) {
+        newX = window.innerWidth - width - baseLeft; // Ép dừng ngay sát lề phải
+    }
+
+    // 3. CHẶN MÉP TRÊN: Không cho mép trên nhỏ hơn tọa độ 0
+    if (absoluteTop < 0) {
+        newY = -baseTop; // Ép dừng sát lề trên
+    }
+
+    // 4. CHẶN MÉP DƯỚI (MỚI): 
+// - Footer của bạn cao 64px (h-16).
+// - Thanh tiêu đề Desmos cao khoảng 40px.
+// => Tổng cộng ta cần giữ cửa sổ cách mép dưới cùng của màn hình ít nhất 104px (64 + 40).
+if (absoluteTop + 104 > window.innerHeight) {
+    newY = window.innerHeight - 104 - baseTop; // Ép thanh tiêu đề dừng lại ngay sát trên mép của Footer
+}
+
+    // Cập nhật vị trí mới đã được lọc qua 4 bức tường chặn
+    setPosition({ 
+        x: newX, 
+        y: newY 
+    });
+};
 
     const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!isDragging) return;                                           // Hàm chỉ chạy nếu trước đó đang drag, nếu trước k drag thì 
@@ -63,11 +121,11 @@ export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorPr
         if (!isOpen) return;    // Nếu desmos đang đóng => Dừng, k phí thời gian chạy máy tính ngầm
 
         const initCalculator = () => {   // Hàm khởi động Desmos
-            if (window.Desmos && calculatorRef.current && !calculator) {    // Điều kiện bắt buộc để khởi động lắp Desmos
+            if (window.Desmos && calculatorRef.current && !calculatorInst.current) {    // Điều kiện bắt buộc để khởi động lắp Desmos
                 // window.Desmos, trình duyệt phải có Desmos
                 // calculatorRef.current : trình duyệt phải có chỗ để đặt Desmos
-                // !calculator : chỉ khởi động khi chưa có Desmos nào được bật, tránh tạo ra 2 3 cái thừa
-                const calc = window.Desmos.GraphingCalculator (calculatorRef.current, {     // calculatorRef.current -> vị trí muốn đặt máy tính vào 
+                // !calculatorInst.current : chỉ khởi động khi chưa có Desmos nào được bật, tránh tạo ra 2 3 cái thừa
+                calculatorInst.current = window.Desmos.GraphingCalculator (calculatorRef.current, {     // calculatorRef.current -> vị trí muốn đặt máy tính vào 
                     keypad: true,                       // cho phép các đặc tính của Desmos
                     expressions: true,
                     settingsMenu: true,
@@ -75,7 +133,6 @@ export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorPr
                     expressionsTopbar: true,
                     lockViewport: false,          // không lock => Cho phép user kéo chuột đi xung quanh đồ thị
                 });
-                setCalculator(calc);   // Lưu máy tính vào bộ nhớ để k tạo thêm
             }
         };
 
@@ -84,11 +141,16 @@ export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorPr
         // Tìm xem desmos script đã được tải về web chưa, để tránh tải đi tải lại nhiều lần phí tài nguyên
 
         if (existingScript) {    // Nếu chưa tải desmos thì tải về
-            initCalculator();
+            // Chỉnh sửa lại một chút: Đảm bảo mạng đã tải xong thật sự mới đúc máy tính
+            if (window.Desmos) {
+                initCalculator();
+            } else {
+                existingScript.addEventListener('load', initCalculator);
+            }
         } else {
             // Load the script dynamically if it doesn't exist
             const script = document.createElement("script");    // Tạo ra 1 thẻ <script> trong document chuyên lấy code từ bên ngoài vào web  
-            script.src = "https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6";  // Lấy từ api này
+            script.src = `${desmosUrl}`;  // Lấy từ api này
             script.id = "desmos-script";       // đặt id để lần sau gặp id này thì k tải lại Desmos vào web
             script.async = true;               // Cho phép async => Bất đồng bộ -> Tải web này trong lúc các thứ khác được chạy
             script.onload = () => {            // onload = khi tải xong
@@ -98,9 +160,12 @@ export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorPr
         }
 
         return () => {                // trong useEffect(), bất cứ thứ gì sau return được gọi là hàm dọn dẹp (Clean up func) -> Chạy khi bấm X hoặc tắt web
-            if (calculator) {    
-                calculator.destroy();       // Xóa hết các phương trình, thông tin, ... trả lại Ram tránh Desmos chạy ngầm
-                setCalculator(null);        // Xóa bộ nhớ về máy tính để lần sau mở thì tạo 1 Desmos mới
+            if (calculatorInst.current) {    
+                calculatorInst.current.destroy();       // Xóa hết các phương trình, thông tin, ... trả lại Ram tránh Desmos chạy ngầm
+                calculatorInst.current = null;        // Xóa bộ nhớ về máy tính để lần sau mở thì tạo 1 Desmos mới
+            }
+            if (existingScript) {
+                existingScript.removeEventListener('load', initCalculator);
             }
         };
     }, [isOpen]);   // Chỉ chạy khi isOpen bị thay đổi
@@ -154,4 +219,4 @@ export default function DesmosCalculator({ isOpen, onClose }: DesmosCalculatorPr
             </div>
         </div>
     );
-}
+}   
