@@ -39,7 +39,7 @@ function ReviewContent() {
     const [loadingExplanations, setLoadingExplanations] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
-        if (status === "unauthenticated") window.location.href = "/auth";
+        if (status === "unauthenticated") window.location.href = "/";
         if (status === "authenticated") {
             api.get(API_PATHS.RESULTS).then(res => {
                 const data = res.data.results || [];

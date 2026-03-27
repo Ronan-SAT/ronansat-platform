@@ -1,6 +1,5 @@
 import type { Metadata } from "next";      // Cấu hình tab trình duyệt
 import AuthProvider from "@/components/AuthProvider";     // Quản lý đăng nhập
-import Navbar from "@/components/Navbar";                 // Thanh điều hướng
 import { Geist, Geist_Mono } from "next/font/google"; 
 import "./globals.css";
 
@@ -31,7 +30,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>    {/**Bọc toàn bộ web ktra liên tục xem đã login chưa*/}
-          <Navbar />      {/**Thanh điều hướng đặt trên cùng */}
           {children}
         </AuthProvider>
       </body>

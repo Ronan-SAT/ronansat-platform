@@ -19,16 +19,13 @@ export default function Navbar() {
     const { data: session, status } = useSession();    // Lấy thông tin phiên đăng nhập
     const pathname = usePathname();                    // Cất cái đuôi của url hiện tại vd  web/edtech -> pathname = edtech
 
-    if (pathname.startsWith("/auth")) {
-            return null;
-     }
-
-    if (                                               // Các trường hợp cất navBar đi: chưa login or đang load or loadin (chưa check user xong) or đường link starts with "test" => Đang test or url = auth (đang đăng nhập)
+    // Ẩn Navbar khi đang ở trang auth hoặc đang làm test
+    if (
+        pathname.startsWith("/auth") ||
+        pathname.startsWith("/suite/test/") ||
         status === "loading" ||
         status === "unauthenticated" ||
-        !session ||
-        pathname.startsWith("/test/") ||
-        pathname === "/auth"
+        !session
     ) {
         return null;
     }
@@ -38,9 +35,9 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between h-16">
                     <div className="flex items-center gap-2">
-                        <Link href="/" className="flex items-center gap-2">
+                        <Link href="/suite" className="flex items-center gap-2">
                             <span className="font-bold text-xl text-slate-900 hover:text-blue-600">
-                                Ronan SAT           {/** Bấm vào Logo và tên thì đưa user về trang chủ */}
+                                Ronan SAT           {/** Bấm vào Logo và tên thì đưa user về dashboard */}
                             </span>
                         </Link>
                     </div>
@@ -59,33 +56,31 @@ export default function Navbar() {
 
 
 
-                        {/* Nút Full-length tests (Trang chủ hiện tại) */}
+                        {/* Nút Full-length tests */}
                         <Link
-                            href="/"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/" ? "text-blue-600" : "text-slate-600"}`}
+                            href="/suite"
+                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/suite" ? "text-blue-600" : "text-slate-600"}`}
                         >
-                            <BookOpen className="w-4 h-4" /> {/* Đừng quên import BookOpen từ lucide-react */}
+                            <BookOpen className="w-4 h-4" />
                             Full-length tests
                         </Link>
 
-                        {/* Nút Sectional tests (Trang mới) */}
+                        {/* Nút Sectional tests */}
                         <Link
-                            href="/sectional"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/sectional" ? "text-blue-600" : "text-slate-600"}`}
+                            href="/suite/sectional"
+                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/suite/sectional" ? "text-blue-600" : "text-slate-600"}`}
                         >
-                            <Target className="w-4 h-4" /> {/* Đừng quên import Target từ lucide-react */}
+                            <Target className="w-4 h-4" />
                             Sectional tests
                         </Link>
 
                         <Link
-                            href="/review"                                                                             // Liên tục check trang hiện tại có phải review không để hiện màu đậm hơn => Các trang khác tương tự
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/review" ? "text-blue-600" : "text-slate-600"}`}
+                            href="/suite/review"
+                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/suite/review" ? "text-blue-600" : "text-slate-600"}`}
                         >
                             <BarChart2 className="w-4 h-4" />
                             Review Mistakes
                         </Link>
-
-
 
                          <Link 
                             href="/hall-of-fame" 
@@ -95,11 +90,9 @@ export default function Navbar() {
                             Hall of Fame
                         </Link>
 
-
-
                         <Link
-                            href="/settings"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/settings" ? "text-blue-600" : "text-slate-600"}`}
+                            href="/suite/settings"
+                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/suite/settings" ? "text-blue-600" : "text-slate-600"}`}
                         >
                             <Settings className="w-4 h-4" />
                             Settings
