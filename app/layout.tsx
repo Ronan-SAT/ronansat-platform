@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {         
-  title: "Ronan SAT",                                // Hiển thị ở thẻ tab của trình duyệt và Phần text to trên trình duyệt
-  description: "Master the Digital SAT with Ronan SAT's Real, Full-Length Tests.",    // Phần description dưới text to của trình duyệt  
+  title: "Ronan SAT - Master the SAT with Personalized, Data-Driven Practice",
+  description: "Experience real test conditions, target your exact weaknesses, and achieve your dream score with our comprehensive SAT preparation platform. Full-length exams, sectional practice, and detailed explanations.",
 };
 
 export default function RootLayout({

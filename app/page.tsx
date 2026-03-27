@@ -14,6 +14,14 @@ import UserStatsPanel from "@/components/dashboard/UserStatsPanel";
 import LeaderboardTable from "@/components/dashboard/LeaderboardTable";
 import TestLibrary from "@/components/dashboard/TestLibrary";
 
+// Import landing page components
+import HeroSection from "@/components/landing/HeroSection";
+import FeaturesBento from "@/components/landing/FeaturesBento";
+import ExplanationSection from "@/components/landing/ExplanationSection";
+import TestimonialsMarquee from "@/components/landing/TestimonialsMarquee";
+import CTASection from "@/components/landing/CTASection";
+import LandingFooter from "@/components/landing/LandingFooter";
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const [tests, setTests] = useState<any[]>([]);                // data các bài test được display
@@ -133,40 +141,46 @@ export default function Dashboard() {
   if (status === "loading") {
     return <Loading />;
   }
+  
+  // Premium Landing Page for unauthenticated users
   if (status === "unauthenticated" || !session) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Ronan SAT</h1>
-          </div>
-          <div className="space-x-4">
-            <Link href="/auth" className="text-slate-600 hover:text-slate-900 font-medium">
-              Log in
-            </Link>
-            <Link
-              href="/auth"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-            >
-              Sign up free
-            </Link>
+      <div className="min-h-screen bg-background font-sans">
+        {/* Landing Header */}
+        <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-foreground tracking-tight">Ronan SAT</h1>
+              </div>
+              <div className="flex items-center gap-4">
+                <Link 
+                  href="/auth" 
+                  className="text-muted-foreground hover:text-foreground font-medium transition-colors"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/auth"
+                  className="bg-primary hover:bg-blue-700 text-primary-foreground px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md"
+                >
+                  Sign up free
+                </Link>
+              </div>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center text-center px-4">
-          <h2 className="text-5xl font-extrabold text-slate-900 tracking-tight max-w-3xl mb-6 leading-tight">
-            Master the Digital SAT with Realistic Practice
-          </h2>
-          <p className="text-xl text-slate-600 max-w-2xl mb-10">
-            Experience the exact same interface, tools, and testing environment you'll face on test day. Track your progress and pinpoint weaknesses.
-          </p>
-          <Link
-            href="/auth"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all"
-          >
-            Start Your First Practice Test
-          </Link>
+        {/* Landing Page Sections */}
+        <main>
+          <HeroSection />
+          <FeaturesBento />
+          <ExplanationSection />
+          <TestimonialsMarquee />
+          <CTASection />
         </main>
+        
+        <LandingFooter />
       </div>
     );
   }
