@@ -61,7 +61,7 @@ export default function AuthPage() {
                 // Ở đây dùng api nên yêu cầu được gửi tới file api để lưu vào DB luôn ở dòng này
                 
                 //Nếu BE bảo kết quả thành công thì tự động route về trang chủ luôn, k cần điền lại ở Login
-                if (res.status === 200) {
+                if (res.status >= 200 && res.status < 300) {
                     setIsError(false);  // Báo rằng đây KHÔNG PHẢI lỗi (để hiển thị nền xanh)
                     setError("Register successfully! Redirecting..."); // Set thông báo thành công
                     await signIn("credentials", { email, password, redirect: false });
@@ -95,7 +95,7 @@ export default function AuthPage() {
                 </div>
 
                 {error && (
-                    <div className={`mb-4 p-3 rounded-lg text-sm ${isError ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
+                    <div className={`mb-4 p-3 rounded-lg text-sm ${isError ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
                         {error}
                     </div>
                 )}
