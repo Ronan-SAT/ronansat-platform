@@ -13,6 +13,10 @@ import TestLibrary from "@/components/dashboard/TestLibrary";
 
 export default function FullLengthDashboard() {
   const { data: session, status } = useSession();
+
+
+
+
   const router = useRouter();
   const [tests, setTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +44,7 @@ export default function FullLengthDashboard() {
   // Bảo vệ trang: Nếu chưa đăng nhập thì đá về trang chủ (Landing page)
   useEffect(() => {
       if (status === "unauthenticated") {
-          router.push("/full-length");
+          router.push("/");
       }
   }, [status, router]);
 

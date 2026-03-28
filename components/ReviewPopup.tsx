@@ -47,158 +47,164 @@ export default function ReviewPopup({ ans, onClose, expandedExplanation, loading
         setIsExplanationVisible(!isExplanationVisible);
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col">
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#f5f7fa] flex flex-col">
 
-            <DesmosCalculator isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+        <DesmosCalculator isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
 
-            {/* ── Header ── */}
-            <header className="h-14 bg-slate-900 flex items-center justify-between px-5 shrink-0 z-10">
-                {/* Left */}
+        {/* ── Header ── */}
+        <header className="h-16 bg-white border-b-2 border-[#1a4080] flex items-center justify-between px-6 shrink-0 z-10 shadow-sm">
+            {/* Left */}
+            <div className="flex items-center gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-1.5 h-5 bg-blue-400 rounded-full" />
-                        <span className="font-bold text-white text-sm tracking-wide">Review Question</span>
+                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-[#1a4080]">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect x="1" y="2" width="14" height="2" rx="1" fill="white"/>
+                            <rect x="1" y="7" width="9" height="2" rx="1" fill="white"/>
+                            <rect x="1" y="12" width="11" height="2" rx="1" fill="white"/>
+                        </svg>
                     </div>
-                    {q.domain && (
-                        <span className="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full border border-slate-600">
-                            {q.domain}
-                        </span>
-                    )}
-                    {isMath && (
-                        <button
-                            onClick={() => setShowCalculator(!showCalculator)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                showCalculator
-                                    ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
-                                    : "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
-                            }`}
-                        >
-                            <Calculator className="w-3.5 h-3.5" /> Desmos
-                        </button>
-                    )}
+                    <span className="font-bold text-[#1a4080] text-sm tracking-wide uppercase letter-spacing-widest">Review Question</span>
                 </div>
-
-                {/* Right */}
-                <div className="flex items-center gap-2">
+                {q.domain && (
+                    <span className="text-xs bg-[#e8eef7] text-[#1a4080] px-3 py-1 rounded-full border border-[#c2d0e8] font-semibold">
+                        {q.domain}
+                    </span>
+                )}
+                {isMath && (
                     <button
-                        onClick={handleToggleExplanation}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            isExplanationVisible
-                                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/30"
-                                : "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
+                        onClick={() => setShowCalculator(!showCalculator)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border ${
+                            showCalculator
+                                ? "bg-[#1a4080] text-white border-[#1a4080] shadow-md"
+                                : "bg-white text-[#1a4080] hover:bg-[#e8eef7] border-[#c2d0e8]"
                         }`}
                     >
-                        <BookOpen className="w-3.5 h-3.5" />
-                        {loadingExplanation ? "Loading..." : "Explanation"}
-                        {isExplanationVisible ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+                        <Calculator className="w-3.5 h-3.5" /> Desmos
                     </button>
-
-                    <button
-                        onClick={() => setShowAI(!showAI)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                            showAI
-                                ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30"
-                                : "bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600"
-                        }`}
-                    >
-                        <Sparkles className="w-3.5 h-3.5" /> Ask AI Tutor
-                    </button>
-
-                    <div className="w-px h-5 bg-slate-700 mx-1" />
-
-                    <button
-                        onClick={onClose}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold transition-all border border-slate-600 hover:border-red-500"
-                    >
-                        <X className="w-3.5 h-3.5" /> Close
-                    </button>
-                </div>
-            </header>
-
-            {/* ── Body ── */}
-            <div className="flex-1 overflow-hidden flex relative">
-                <div className="flex-1 flex h-full overflow-hidden">
-
-                    {/* ── Passage column ── */}
-                    <PassageColumn q={q} />
-
-                    {/* ── Question + Choices column ── */}
-                    <div className={`${q.passage ? "w-1/2" : "w-full max-w-3xl mx-auto"} h-full overflow-y-auto bg-slate-50`}>
-                        <div className="p-8 lg:p-10 flex flex-col gap-6">
-
-                            {/* Image (no passage case) */}
-                            {!q.passage && q.imageUrl && (
-                                <div className="flex justify-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                    <img src={q.imageUrl} alt="Reference" className="max-w-full max-h-[320px] object-contain rounded-lg" />
-                                </div>
-                            )}
-
-                            {/* Question text card */}
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-1 h-4 bg-blue-400 rounded-full" />
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Question</span>
-                                </div>
-                                <p className="text-[17px] text-slate-900 leading-relaxed font-medium">
-                                    <Latex>{q.questionText}</Latex>
-                                </p>
-                            </div>
-
-                            {/* Answer section (Tách thành file riêng) */}
-                            <AnswerDetails q={q} ans={ans} />
-
-                            {/* Explanation panel */}
-                            {isExplanationVisible && (
-                                <div className="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
-                                    <div className="flex items-center gap-2.5 px-5 py-3.5 bg-blue-600 border-b border-blue-500">
-                                        <BookOpen className="w-4 h-4 text-blue-100" />
-                                        <span className="font-bold text-sm text-white">Explanation</span>
-                                    </div>
-                                    <div className="p-5">
-                                        {expandedExplanation ? (
-                                            <p className="text-slate-700 leading-relaxed text-[15px] whitespace-pre-wrap">
-                                                <Latex>{expandedExplanation}</Latex>
-                                            </p>
-                                        ) : (
-                                            <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                                <div className="w-4 h-4 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin" />
-                                                Loading explanation...
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── AI Tutor panel ── */}
-                {showAI && (
-                    <div className="w-[420px] border-l border-slate-200 bg-white flex flex-col shrink-0 shadow-2xl z-20">
-                        <div className="bg-violet-600 px-4 py-3 flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-2.5">
-                                <div className="p-1.5 bg-violet-500 rounded-lg">
-                                    <Sparkles className="w-4 h-4 text-violet-100" />
-                                </div>
-                                <div>
-                                    <p className="font-bold text-white text-sm">AI Study Tutor</p>
-                                    <p className="text-xs text-violet-300">Powered by Gemini</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowAI(false)}
-                                className="p-1.5 hover:bg-violet-500 rounded-lg transition"
-                            >
-                                <X className="w-4 h-4 text-violet-200" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-hidden relative bg-slate-50">
-                            <ReviewChatbot questionId={q._id} questionText={q.questionText} headless />
-                        </div>
-                    </div>
                 )}
             </div>
+
+            {/* Right */}
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={handleToggleExplanation}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border ${
+                        isExplanationVisible
+                            ? "bg-[#1a4080] text-white border-[#1a4080] shadow-md"
+                            : "bg-white text-[#1a4080] hover:bg-[#e8eef7] border-[#c2d0e8]"
+                    }`}
+                >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    {loadingExplanation ? "Loading..." : "Explanation"}
+                    {isExplanationVisible ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
+                </button>
+
+                <button
+                    onClick={() => setShowAI(!showAI)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all border ${
+                        showAI
+                            ? "bg-[#4338ca] text-white border-[#4338ca] shadow-md"
+                            : "bg-white text-[#4338ca] hover:bg-[#ede9fe] border-[#c4b5fd]"
+                    }`}
+                >
+                    <Sparkles className="w-3.5 h-3.5" /> Ask AI Tutor
+                </button>
+
+                <div className="w-px h-5 bg-[#c2d0e8] mx-1" />
+
+                <button
+                    onClick={onClose}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-red-50 text-[#64748b] hover:text-red-600 rounded-md text-xs font-semibold transition-all border border-[#c2d0e8] hover:border-red-300"
+                >
+                    <X className="w-3.5 h-3.5" /> Close
+                </button>
+            </div>
+        </header>
+
+        {/* ── Body ── */}
+        <div className="flex-1 overflow-hidden flex relative">
+            <div className="flex-1 flex h-full overflow-hidden">
+
+                {/* ── Passage column ── */}
+                <PassageColumn q={q} />
+
+                {/* ── Question + Choices column ── */}
+                <div className={`${q.passage ? "w-1/2" : "w-full max-w-3xl mx-auto"} h-full overflow-y-auto bg-[#f5f7fa]`}>
+                    <div className="p-8 lg:p-10 flex flex-col gap-5">
+
+                        {/* Image (no passage case) */}
+                        {!q.passage && q.imageUrl && (
+                            <div className="flex justify-center bg-white p-4 rounded-xl border border-[#dde5f0] shadow-sm">
+                                <img src={q.imageUrl} alt="Reference" className="max-w-full max-h-[320px] object-contain rounded-lg" />
+                            </div>
+                        )}
+
+                        {/* Question text card */}
+                        <div className="bg-white rounded-xl border border-[#dde5f0] shadow-sm p-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-1 h-5 bg-[#1a4080] rounded-full" />
+                                <span className="text-[10px] font-bold text-[#1a4080] uppercase tracking-[0.15em]">Question</span>
+                            </div>
+                            <p className="text-[17px] text-[#1a2540] leading-relaxed font-medium">
+                                <Latex>{q.questionText}</Latex>
+                            </p>
+                        </div>
+
+                        {/* Answer section (Tách thành file riêng) */}
+                        <AnswerDetails q={q} ans={ans} />
+
+                        {/* Explanation panel */}
+                        {isExplanationVisible && (
+                            <div className="bg-white rounded-xl border border-[#c2d0e8] shadow-sm overflow-hidden">
+                                <div className="flex items-center gap-2.5 px-5 py-3.5 bg-[#1a4080] border-b border-[#15336a]">
+                                    <BookOpen className="w-4 h-4 text-blue-200" />
+                                    <span className="font-bold text-sm text-white tracking-wide">Explanation</span>
+                                </div>
+                                <div className="p-6">
+                                    {expandedExplanation ? (
+                                        <p className="text-[#334155] leading-relaxed text-[15px] whitespace-pre-wrap">
+                                            <Latex>{expandedExplanation}</Latex>
+                                        </p>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-[#94a3b8] text-sm">
+                                            <div className="w-4 h-4 border-2 border-[#dde5f0] border-t-[#1a4080] rounded-full animate-spin" />
+                                            Loading explanation...
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── AI Tutor panel ── */}
+            {showAI && (
+                <div className="w-[420px] border-l border-[#dde5f0] bg-white flex flex-col shrink-0 shadow-2xl z-20">
+                    <div className="bg-[#4338ca] px-4 py-3 flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-[#4f46e5] rounded-lg">
+                                <Sparkles className="w-4 h-4 text-indigo-200" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-white text-sm">AI Study Tutor</p>
+                                <p className="text-xs text-indigo-300">Powered by Gemini</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowAI(false)}
+                            className="p-1.5 hover:bg-[#4f46e5] rounded-lg transition"
+                        >
+                            <X className="w-4 h-4 text-indigo-200" />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative bg-[#f5f7fa]">
+                        <ReviewChatbot questionId={q._id} questionText={q.questionText} headless />
+                    </div>
+                </div>
+            )}
         </div>
-    );
+    </div>
+);
 }
