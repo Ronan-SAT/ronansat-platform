@@ -1,5 +1,7 @@
 "use client";
 
+import Latex from 'react-latex-next';
+
 interface PassageColumnProps {
     q: any;
 }
@@ -22,7 +24,7 @@ export default function PassageColumn({ q }: PassageColumnProps) {
                     <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Passage</span>
                 </div>
                 <div className="text-[15px] leading-[1.85] font-serif text-slate-700 selection:bg-blue-100">
-                    <div dangerouslySetInnerHTML={{ __html: q.passage.replace(/\n/g, "<br/>") }} />
+                    <Latex>{q.passage.replace(/\n/g, "<br/>")}</Latex>
                 </div>
             </div>
         </div>

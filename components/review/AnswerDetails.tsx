@@ -2,6 +2,7 @@
 
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import Latex from "react-latex-next";
+import 'katex/dist/katex.min.css'; // THÊM DÒNG NÀY BẮT BUỘC
 
 interface AnswerDetailsProps {
     q: any;

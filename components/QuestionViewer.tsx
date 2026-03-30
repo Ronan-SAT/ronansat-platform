@@ -73,8 +73,8 @@ export default function QuestionViewer({
                     )}
 
                     {question.passage && (
-                        <div className="text-[15px] leading-relaxed text-slate-900 font-serif selection:bg-yellow-200 selection:text-black">
-                            <div dangerouslySetInnerHTML={{ __html: question.passage.replace(/\n/g, '<br/>') }} />
+                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed text-slate-900 font-serif selection:bg-yellow-200 selection:text-black">
+                            <Latex>{question.passage}</Latex>
                         </div>
                     )}
                 </div>
