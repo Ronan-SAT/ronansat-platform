@@ -18,6 +18,7 @@ type GeneratePDFTemplateParams = {
   testTitle: string;
   questions: RawQuestion[];
   sectionName?: string;
+  documentTitle?: string;
 };
 
 type AnswerGroup = {
@@ -303,6 +304,7 @@ export function generatePDFTemplate({
   testTitle,
   questions,
   sectionName,
+  documentTitle,
 }: GeneratePDFTemplateParams): string {
   const sortedQuestions = sortQuestions(questions);
   const questionsHtml = sortedQuestions.map((question, index) => buildQuestionBlock(question, index)).join("");
@@ -315,7 +317,7 @@ export function generatePDFTemplate({
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${escapeHtml(testTitle)}</title>
+        <title>${escapeHtml(documentTitle || testTitle)}</title>
         <style>
           @page {
             size: A4;
@@ -337,6 +339,17 @@ export function generatePDFTemplate({
 
           .document {
             width: 100%;
+          }
+
+          .print-footer {
+            position: fixed;
+            left: 0mm;
+            bottom: 0mm;
+            z-index: 20;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: #334155;
           }
 
           .header {
@@ -580,6 +593,7 @@ export function generatePDFTemplate({
           ${questionsHtml}
           ${answerKeyHtml}
         </main>
+        <div class="print-footer">Ronan SAT</div>
       </body>
     </html>
   `;

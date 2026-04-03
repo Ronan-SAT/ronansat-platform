@@ -2,10 +2,66 @@
 
 import { useState } from "react";
 
+import { generatePDFTemplate } from "@/utils/questionTemplate";
+
 interface DownloadPdfButtonProps {
   testId: string;
   testName?: string;
   sectionName?: string;
+}
+
+type PdfDataResponse = {
+  testTitle: string;
+  questions: Array<Record<string, unknown>>;
+  sectionName?: string;
+};
+
+function buildFileName(testName: string, sectionName?: string) {
+  const joined = [testName, sectionName, "PDF"]
+    .filter(Boolean)
+    .join("_")
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "_");
+
+  return `${joined || "practice_test"}.pdf`;
+}
+
+async function waitForPrintableAssets(iframeWindow: Window) {
+  const documentRef = iframeWindow.document;
+  const images = Array.from(documentRef.images);
+
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener("error", () => resolve(), { once: true });
+        })
+    )
+  );
+
+  if ("fonts" in documentRef) {
+    await documentRef.fonts.ready;
+  }
+}
+
+function createHiddenPrintFrame() {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+  return iframe;
 }
 
 export default function DownloadPdfButton({
@@ -16,6 +72,8 @@ export default function DownloadPdfButton({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
+    let iframe: HTMLIFrameElement | null = null;
+
     try {
       setIsDownloading(true);
 
@@ -24,39 +82,52 @@ export default function DownloadPdfButton({
         params.set("section", sectionName);
       }
 
-      const response = await fetch(`/api/export-pdf?${params.toString()}`, {
-        method: "GET",
+      const response = await fetch(`/api/pdf-data?${params.toString()}`, {
+        credentials: "include",
       });
 
       if (!response.ok) {
-        let errorMessage = "Khong the tai PDF luc nay.";
-
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // Keep fallback message when the response body is not JSON.
-        }
-
-        window.alert(`Loi: ${errorMessage}`);
-        return;
+        const message =
+          response.status === 401 ? "Bạn cần đăng nhập để tải PDF." : "Lỗi khi lấy dữ liệu PDF.";
+        throw new Error(message);
       }
 
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const fileNameBase = [testName, sectionName].filter(Boolean).join("_");
+      const data = (await response.json()) as PdfDataResponse;
+      const fileName = buildFileName(testName || data.testTitle, sectionName || data.sectionName);
+      const htmlString = generatePDFTemplate({
+        testTitle: data.testTitle,
+        questions: data.questions,
+        sectionName: data.sectionName,
+        documentTitle: fileName.replace(/\.pdf$/i, ""),
+      });
 
-      link.href = downloadUrl;
-      link.download = `${fileNameBase.replace(/[^\w\s-]/g, "").replace(/\s+/g, "_") || "practice_test"}.pdf`;
+      iframe = createHiddenPrintFrame();
+      const iframeWindow = iframe.contentWindow;
 
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
+      if (!iframeWindow) {
+        throw new Error("Không thể tạo vùng in ẩn.");
+      }
+
+      iframeWindow.document.open();
+      iframeWindow.document.write(htmlString);
+      iframeWindow.document.close();
+
+      await waitForPrintableAssets(iframeWindow);
+
+      const cleanup = () => {
+        iframe?.remove();
+        iframe = null;
+      };
+
+      iframeWindow.addEventListener("afterprint", cleanup, { once: true });
+      window.setTimeout(cleanup, 60_000);
+
+      iframeWindow.focus();
+      iframeWindow.print();
     } catch (error) {
-      console.error("Failed to download PDF", error);
-      window.alert("Da xay ra loi mang. Vui long thu lai.");
+      console.error("Failed to prepare print PDF", error);
+      iframe?.remove();
+      window.alert(error instanceof Error ? error.message : "Đã xảy ra lỗi khi chuẩn bị PDF.");
     } finally {
       setIsDownloading(false);
     }
@@ -67,13 +138,13 @@ export default function DownloadPdfButton({
       type="button"
       onClick={handleDownload}
       disabled={isDownloading}
-    className={`text-xs font-medium transition-colors underline ${
-  isDownloading
-    ? "cursor-not-allowed text-gray-400"
-    : "cursor-pointer text-black hover:text-blue-600 hover:no-underline"
-}`}
+      className={`text-xs font-medium transition-colors underline ${
+        isDownloading
+          ? "cursor-not-allowed text-gray-400"
+          : "cursor-pointer text-black hover:text-blue-600 hover:no-underline"
+      }`}
     >
-      {isDownloading ? "Downloading..." : "Download PDF"}
+      {isDownloading ? "Dang chuan bi PDF..." : "Download PDF"}
     </button>
   );
 }
