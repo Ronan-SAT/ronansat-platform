@@ -73,7 +73,7 @@ export default function QuestionViewer({
 
           {question.passage ? (
             <div className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-slate-900 selection:bg-yellow-200 selection:text-black">
-              <Latex>{question.passage}</Latex>
+              <Latex>{question.passage ?? ""}</Latex>
             </div>
           ) : null}
         </div>
@@ -148,7 +148,7 @@ export default function QuestionViewer({
         </div>
 
         <div className="px-6 pb-3 pt-3 text-[15px] leading-relaxed text-slate-900">
-          <Latex>{question.questionText}</Latex>
+          <Latex>{question.questionText ?? ""}</Latex>
         </div>
 
         <div className="flex-1 px-6 pb-8">

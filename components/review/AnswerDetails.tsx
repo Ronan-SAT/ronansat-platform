@@ -73,7 +73,7 @@ export default function AnswerDetails({ q, ans }: AnswerDetailsProps) {
                   key={index}
                   className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 font-bold text-emerald-700 shadow-sm"
                 >
-                  <Latex>{answer}</Latex>
+                    <Latex>{answer ?? ""}</Latex>
                 </span>
               ))}
             </div>
@@ -143,7 +143,7 @@ export default function AnswerDetails({ q, ans }: AnswerDetailsProps) {
               {optionLabels[index] || ""}
             </div>
             <span className="flex-1 text-[15px] font-medium leading-snug">
-              <Latex>{choice}</Latex>
+              <Latex>{choice ?? ""}</Latex>
             </span>
             {Icon ? <Icon className="h-4.5 w-4.5 shrink-0 opacity-70" /> : null}
           </div>
