@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CldImage } from "next-cloudinary";
 import Latex from "react-latex-next";
 
-import "katex/dist/katex.min.css";
 import { getChoiceCode } from "@/utils/gradingHelper";
 
 const MAX_SPR_ANSWER_LENGTH = 200;
