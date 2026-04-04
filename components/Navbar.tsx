@@ -1,127 +1,122 @@
-/**
- * Thanh điều hướng
- * Tàng hình nếu chưa login, đổi màu chữ của trang hiện tại trên NavBar (biết mình ở trang nào), là Admin thì hiện thêm nút riêng đến trang tạo đề
- */
-
-
 "use client";
 
-import Image from "next/image";
-import logo from "@/assets/logo.png";
-import { useSession, signOut } from "next-auth/react";   // signOut để signOut -> Hủy session đăng nhập, và điều hướng về trạng thái chưa đăng nhập
 import Link from "next/link";
-import { LogOut, Settings, BarChart2, Trophy, Target, BookOpen  } from "lucide-react";
-import { usePathname } from "next/navigation";          // Công cụ để đọc url hiện tại -> Biết user ở trang nào -> Tô đậm ô đó  
-import { LayoutGrid } from "lucide-react";
-
+import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
+import { BarChart2, BookOpen, LibraryBig, LogOut, Settings, Target, Trophy } from "lucide-react";
 
 export default function Navbar() {
-    const { data: session, status } = useSession();    // Lấy thông tin phiên đăng nhập
-    const pathname = usePathname();                    // Cất cái đuôi của url hiện tại vd  web/edtech -> pathname = edtech
+  const { data: session, status } = useSession();
+  const pathname = usePathname();
 
-    if (pathname.startsWith("/auth")) {
-            return null;
-     }
+  if (pathname.startsWith("/auth")) {
+    return null;
+  }
 
-    if (                                               // Các trường hợp cất navBar đi: chưa login or đang load or loadin (chưa check user xong) or đường link starts with "test" => Đang test or url = auth (đang đăng nhập)
-        status === "loading" ||
-        status === "unauthenticated" ||
-        !session ||
-        pathname.startsWith("/test/") ||
-        pathname === "/auth"
-    ) {
-        return null;
-    }
+  if (
+    status === "loading" ||
+    status === "unauthenticated" ||
+    !session ||
+    pathname.startsWith("/test/") ||
+    pathname === "/auth"
+  ) {
+    return null;
+  }
 
-    return (
-        <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16">
-                    <div className="flex items-center gap-2">
-                        <Link href="/full-length" className="flex items-center gap-2">
-                            <span className="font-bold text-xl text-slate-900 hover:text-blue-600">
-                                Ronan SAT           {/** Bấm vào Logo và tên thì đưa user về trang chủ */}
-                            </span>
-                        </Link>
-                    </div>
+  return (
+    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2">
+          <Link href="/full-length" className="flex items-center gap-2">
+            <span className="text-xl font-bold text-slate-900 transition hover:text-blue-600">Ronan SAT</span>
+          </Link>
+        </div>
 
-                    <div className="flex items-center gap-4">
-                        {session.user.role === "admin" && (         // Check if role = admin
-                            <Link
-                                href="/admin"                       // đưa về trang admin
-                                className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/admin" ? "text-blue-600" : "text-slate-600"}`}
-                            >
-                                <Settings className="w-4 h-4" />
-                                Admin
-                            </Link>
-                        )}
+        <div className="flex items-center gap-4">
+          {session.user.role === "admin" ? (
+            <NavItem href="/admin" active={pathname === "/admin"} icon={<Settings className="h-4 w-4" />} label="Admin" />
+          ) : null}
 
+          <NavItem
+            href="/full-length"
+            active={pathname === "/full-length"}
+            icon={<BookOpen className="h-4 w-4" />}
+            label="Full-length tests"
+          />
 
+          <NavItem
+            href="/sectional"
+            active={pathname === "/sectional"}
+            icon={<Target className="h-4 w-4" />}
+            label="Sectional tests"
+          />
 
+          <NavItem
+            href="/review"
+            active={pathname === "/review"}
+            icon={<BarChart2 className="h-4 w-4" />}
+            label="Review Mistakes"
+          />
 
-                        {/* Nút Full-length tests (Trang chủ hiện tại) */}
-                        <Link
-                            href="/full-length"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/full-length" ? "text-blue-600" : "text-slate-600"}`}
-                        >
-                            <BookOpen className="w-4 h-4" /> {/* Đừng quên import BookOpen từ lucide-react */}
-                            Full-length tests
-                        </Link>
+          <NavItem
+            href="/vocab"
+            active={pathname === "/vocab"}
+            icon={<LibraryBig className="h-4 w-4" />}
+            label="Vocab"
+          />
 
-                        {/* Nút Sectional tests (Trang mới) */}
-                        <Link
-                            href="/sectional"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/sectional" ? "text-blue-600" : "text-slate-600"}`}
-                        >
-                            <Target className="w-4 h-4" /> {/* Đừng quên import Target từ lucide-react */}
-                            Sectional tests
-                        </Link>
+          <NavItem
+            href="/hall-of-fame"
+            active={pathname === "/hall-of-fame"}
+            icon={<Trophy className="h-4 w-4" />}
+            label="Hall of Fame"
+          />
 
-                        <Link
-                            href="/review"                                                                             // Liên tục check trang hiện tại có phải review không để hiện màu đậm hơn => Các trang khác tương tự
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/review" ? "text-blue-600" : "text-slate-600"}`}
-                        >
-                            <BarChart2 className="w-4 h-4" />
-                            Review Mistakes
-                        </Link>
+          <NavItem
+            href="/settings"
+            active={pathname === "/settings"}
+            icon={<Settings className="h-4 w-4" />}
+            label="Settings"
+          />
 
+          <div className="mx-2 h-6 w-px bg-slate-200" />
 
+          <span className="hidden text-sm font-medium text-slate-700 sm:block">
+            Hi, {session.user.name || session.user.email?.split("@")[0]}
+          </span>
+          <button
+            onClick={() => signOut({ callbackUrl: "/auth" })}
+            className="cursor-pointer rounded-full p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+            title="Log out"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+}
 
-                         <Link 
-                            href="/hall-of-fame" 
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/hall-of-fame" ? "text-blue-600" : "text-slate-600"}`}
-                        >   
-                           <Trophy className="w-4 h-4" />
-                            Hall of Fame
-                        </Link>
-
-
-
-                        <Link
-                            href="/settings"
-                            className={`flex items-center gap-1 text-sm font-medium hover:text-blue-600 ${pathname === "/settings" ? "text-blue-600" : "text-slate-600"}`}
-                        >
-                            <Settings className="w-4 h-4" />
-                            Settings
-                        </Link>
-
-                       
-
-                        <div className="h-6 w-px bg-slate-200 mx-2" />
-
-                        <span className="text-sm font-medium text-slate-700 hidden sm:block">  
-                            Hi, {session.user.name || session.user.email?.split('@')[0]}         {/** Trên navBar có phần Hi + tên, nếu user chưa điền tên thì dùng email, cắt ở @ để chỉ lấy phần tên trước @ */}
-                        </span>
-                        <button
-                            onClick={() => signOut({ callbackUrl: '/auth' })}   // của lda callbackUrl là / nhưng fix thành auth để đưa tới trang login
-                            className="cursor-pointer p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full"
-                            title="Log out"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </nav>
-    );
+function NavItem({
+  href,
+  active,
+  icon,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-1 text-sm font-medium transition hover:text-blue-600 ${
+        active ? "text-blue-600" : "text-slate-600"
+      }`}
+    >
+      {icon}
+      {label}
+    </Link>
+  );
 }

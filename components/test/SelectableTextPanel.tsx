@@ -2,6 +2,8 @@
 
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { useVocabBoard } from "@/components/vocab/VocabBoardProvider";
+
 export type TextAnnotation = {
   id: string;
   start: number;
@@ -20,6 +22,7 @@ type ToolbarState = {
   left: number;
   activeAnnotationId: string | null;
   pendingSelection: PendingSelection | null;
+  pendingText: string;
 };
 
 interface SelectableTextPanelProps {
@@ -27,6 +30,7 @@ interface SelectableTextPanelProps {
   onChange: (annotations: TextAnnotation[]) => void;
   className?: string;
   children: ReactNode;
+  sourceQuestionId?: string;
 }
 
 const HIGHLIGHT_COLORS = [
@@ -40,11 +44,16 @@ export default function SelectableTextPanel({
   onChange,
   className,
   children,
+  sourceQuestionId,
 }: SelectableTextPanelProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const nextAnnotationIdRef = useRef(0);
   const [toolbar, setToolbar] = useState<ToolbarState | null>(null);
+  const { addVocabCard } = useVocabBoard();
   const pendingSelection = toolbar?.pendingSelection ?? null;
+  const pendingText = toolbar?.pendingText ?? "";
+
+  const canSavePendingSelection = pendingText.length > 0 && pendingText.length <= 50;
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -131,6 +140,7 @@ export default function SelectableTextPanel({
         left: rect.left + rect.width / 2,
         activeAnnotationId: null,
         pendingSelection: { start, end },
+        pendingText: getTextSlice(root, start, end),
       });
     }, 0);
   };
@@ -144,6 +154,7 @@ export default function SelectableTextPanel({
       left: rect.left + rect.width / 2,
       activeAnnotationId: annotationId,
       pendingSelection: null,
+      pendingText: "",
     });
   };
 
@@ -202,6 +213,7 @@ export default function SelectableTextPanel({
       ...toolbar,
       activeAnnotationId: nextAnnotation.id,
       pendingSelection: null,
+      pendingText: "",
     });
     clearSelection();
   };
@@ -212,6 +224,16 @@ export default function SelectableTextPanel({
     }
 
     onChange(annotations.filter((annotation) => annotation.id !== toolbar.activeAnnotationId));
+    setToolbar(null);
+    clearSelection();
+  };
+
+  const handleAddToVocab = () => {
+    if (!canSavePendingSelection) {
+      return;
+    }
+
+    addVocabCard(pendingText, sourceQuestionId);
     setToolbar(null);
     clearSelection();
   };
@@ -229,53 +251,65 @@ export default function SelectableTextPanel({
       {toolbar ? (
         <div
           data-annotation-toolbar
-          className="fixed z-[100] flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
+          className="fixed z-[100] flex flex-col items-center rounded-[24px] border border-slate-300 bg-white px-3 py-2 shadow-[0_14px_34px_rgba(15,23,42,0.16)]"
           style={{
             top: toolbar.top,
             left: toolbar.left,
             transform: "translate(-50%, -100%)",
           }}
         >
-          {HIGHLIGHT_COLORS.map((color) => {
-            const isActive = activeAnnotation?.color === color.value;
+          {canSavePendingSelection ? (
+            <button
+              type="button"
+              onClick={handleAddToVocab}
+              className="mb-2 text-[12px] font-semibold text-slate-600 underline underline-offset-2 transition hover:text-slate-900 hover:no-underline"
+            >
+              Add to Vocab
+            </button>
+          ) : null}
 
-            return (
-              <button
-                key={color.id}
-                type="button"
-                title={`Highlight ${color.label}`}
-                aria-label={`Highlight ${color.label}`}
-                onClick={() => upsertAnnotation({ color: color.value })}
-                className={`h-10 w-10 rounded-full border transition-transform hover:scale-105 ${
-                  isActive ? "border-slate-700 ring-2 ring-slate-300" : "border-slate-300"
-                }`}
-                style={{ backgroundColor: color.value }}
-              />
-            );
-          })}
+          <div className="flex items-center gap-2">
+            {HIGHLIGHT_COLORS.map((color) => {
+              const isActive = activeAnnotation?.color === color.value;
 
-          <button
-            type="button"
-            title="Underline"
-            aria-label="Underline"
-            onClick={() => upsertAnnotation({ underline: !(activeAnnotation?.underline ?? false) || !activeAnnotation })}
-            className={`flex h-10 w-10 items-center justify-center rounded-full border text-slate-700 transition-colors hover:bg-slate-100 ${
-              activeAnnotation?.underline ? "border-slate-700 bg-slate-100" : "border-slate-300"
-            }`}
-          >
-            <UnderlineIcon />
-          </button>
+              return (
+                <button
+                  key={color.id}
+                  type="button"
+                  title={`Highlight ${color.label}`}
+                  aria-label={`Highlight ${color.label}`}
+                  onClick={() => upsertAnnotation({ color: color.value })}
+                  className={`h-10 w-10 rounded-full border transition-transform hover:scale-105 ${
+                    isActive ? "border-slate-700 ring-2 ring-slate-300" : "border-slate-300"
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                />
+              );
+            })}
 
-          <button
-            type="button"
-            title="Remove annotation"
-            aria-label="Remove annotation"
-            onClick={removeActiveAnnotation}
-            disabled={!activeAnnotation}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <TrashIcon />
-          </button>
+            <button
+              type="button"
+              title="Underline"
+              aria-label="Underline"
+              onClick={() => upsertAnnotation({ underline: !(activeAnnotation?.underline ?? false) || !activeAnnotation })}
+              className={`flex h-10 w-10 items-center justify-center rounded-full border text-slate-700 transition-colors hover:bg-slate-100 ${
+                activeAnnotation?.underline ? "border-slate-700 bg-slate-100" : "border-slate-300"
+              }`}
+            >
+              <UnderlineIcon />
+            </button>
+
+            <button
+              type="button"
+              title="Remove annotation"
+              aria-label="Remove annotation"
+              onClick={removeActiveAnnotation}
+              disabled={!activeAnnotation}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-300 text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <TrashIcon />
+            </button>
+          </div>
         </div>
       ) : null}
     </>
@@ -290,8 +324,6 @@ function applyAnnotation(root: HTMLElement, annotation: TextAnnotation) {
 
   const wrapper = document.createElement("span");
   wrapper.dataset.textAnnotationId = annotation.id;
-  wrapper.dataset.annotationColor = annotation.color ?? "";
-  wrapper.dataset.annotationUnderline = annotation.underline ? "true" : "false";
   wrapper.style.backgroundColor = annotation.color ?? "transparent";
   wrapper.style.textDecorationLine = annotation.underline ? "underline" : "none";
   wrapper.style.textDecorationStyle = annotation.underline ? "dotted" : "solid";
@@ -403,6 +435,11 @@ function getTextOffset(root: HTMLElement, container: Node, offset: number) {
   range.selectNodeContents(root);
   range.setEnd(container, offset);
   return range.toString().length;
+}
+
+function getTextSlice(root: HTMLElement, start: number, end: number) {
+  const fullText = root.textContent ?? "";
+  return fullText.slice(start, end).replace(/\s+/g, " ").trim();
 }
 
 function clearSelection() {

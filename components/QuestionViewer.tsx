@@ -103,6 +103,7 @@ export default function QuestionViewer({
               annotations={currentAnnotations.passage}
               onChange={(nextAnnotations) => updateAnnotations("passage", nextAnnotations)}
               className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-slate-900 selection:bg-yellow-200 selection:text-black"
+              sourceQuestionId={question._id}
             >
               <Latex>{question.passage ?? ""}</Latex>
             </SelectableTextPanel>
@@ -187,6 +188,7 @@ export default function QuestionViewer({
           annotations={currentAnnotations.questionText}
           onChange={(nextAnnotations) => updateAnnotations("questionText", nextAnnotations)}
           className="px-6 pb-3 pt-3 text-[15px] leading-relaxed text-slate-900"
+          sourceQuestionId={question._id}
         >
           <Latex>{question.questionText ?? ""}</Latex>
         </SelectableTextPanel>
