@@ -2,7 +2,6 @@
 
 import { BookOpen } from "lucide-react";       // icon
 import TestCard from "@/components/TestCard";       // Khung hiển thị 1 bài test
-import Loading from "@/components/Loading";         // animation loading
 import { Dispatch, SetStateAction } from "react";
 import TestCardSkeleton from "@/components/TestCardSkeleton";
 

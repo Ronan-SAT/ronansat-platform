@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CldImage } from "next-cloudinary";
 import Latex from "react-latex-next";
 
+import SelectableTextPanel, { type TextAnnotation } from "@/components/test/SelectableTextPanel";
 import { getChoiceCode } from "@/utils/gradingHelper";
 
 const MAX_SPR_ANSWER_LENGTH = 200;
@@ -37,22 +38,49 @@ export default function QuestionViewer({
   leftWidth = 50,
 }: QuestionViewerProps) {
   const optionLabels = ["A", "B", "C", "D"];
-  const [crossedOut, setCrossedOut] = useState<string[]>([]);
-  const [showElimination, setShowElimination] = useState(false);
+  const [crossedOutByQuestion, setCrossedOutByQuestion] = useState<Record<string, string[]>>({});
+  const [showEliminationByQuestion, setShowEliminationByQuestion] = useState<Record<string, boolean>>({});
+  const [annotationsByQuestion, setAnnotationsByQuestion] = useState<
+    Record<string, { passage: TextAnnotation[]; questionText: TextAnnotation[] }>
+  >({});
 
   const toggleCrossOut = (event: React.MouseEvent, choice: string) => {
     event.stopPropagation();
-    if (crossedOut.includes(choice)) {
-      setCrossedOut(crossedOut.filter((item) => item !== choice));
-      return;
-    }
-
-    setCrossedOut([...crossedOut, choice]);
+    setCrossedOutByQuestion((previous) => {
+      const current = previous[question._id] ?? [];
+      return {
+        ...previous,
+        [question._id]: current.includes(choice)
+          ? current.filter((item) => item !== choice)
+          : [...current, choice],
+      };
+    });
   };
 
   const hasLeftPanel = question.passage || question.imageUrl;
   const leftPct = `${leftWidth}%`;
   const rightPct = `${100 - leftWidth}%`;
+  const currentAnnotations = useMemo(
+    () =>
+      annotationsByQuestion[question._id] ?? {
+        passage: [],
+        questionText: [],
+      },
+    [annotationsByQuestion, question._id],
+  );
+  const crossedOut = crossedOutByQuestion[question._id] ?? [];
+  const showElimination = showEliminationByQuestion[question._id] ?? false;
+
+  const updateAnnotations = (part: "passage" | "questionText", nextAnnotations: TextAnnotation[]) => {
+    setAnnotationsByQuestion((previous) => ({
+      ...previous,
+      [question._id]: {
+        passage: previous[question._id]?.passage ?? [],
+        questionText: previous[question._id]?.questionText ?? [],
+        [part]: nextAnnotations,
+      },
+    }));
+  };
 
   return (
     <div className="mt-16 mb-16 flex h-[calc(100vh-8rem)] w-full overflow-hidden bg-white">
@@ -71,9 +99,13 @@ export default function QuestionViewer({
           ) : null}
 
           {question.passage ? (
-            <div className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-slate-900 selection:bg-yellow-200 selection:text-black">
+            <SelectableTextPanel
+              annotations={currentAnnotations.passage}
+              onChange={(nextAnnotations) => updateAnnotations("passage", nextAnnotations)}
+              className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed text-slate-900 selection:bg-yellow-200 selection:text-black"
+            >
               <Latex>{question.passage ?? ""}</Latex>
-            </div>
+            </SelectableTextPanel>
           ) : null}
         </div>
       ) : null}
@@ -119,7 +151,12 @@ export default function QuestionViewer({
               </button>
 
               <button
-                onClick={() => setShowElimination((prev) => !prev)}
+                onClick={() =>
+                  setShowEliminationByQuestion((previous) => ({
+                    ...previous,
+                    [question._id]: !(previous[question._id] ?? false),
+                  }))
+                }
                 title={showElimination ? "Tat Process of Elimination" : "Bat Process of Elimination"}
                 className={`relative flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-sm border font-bold transition-colors select-none ${
                   showElimination
@@ -146,9 +183,13 @@ export default function QuestionViewer({
           />
         </div>
 
-        <div className="px-6 pb-3 pt-3 text-[15px] leading-relaxed text-slate-900">
+        <SelectableTextPanel
+          annotations={currentAnnotations.questionText}
+          onChange={(nextAnnotations) => updateAnnotations("questionText", nextAnnotations)}
+          className="px-6 pb-3 pt-3 text-[15px] leading-relaxed text-slate-900"
+        >
           <Latex>{question.questionText ?? ""}</Latex>
-        </div>
+        </SelectableTextPanel>
 
         <div className="flex-1 px-6 pb-8">
           {question.questionType === "spr" ? (

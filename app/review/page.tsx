@@ -5,7 +5,7 @@ import { useEffect, useState, Suspense } from "react"; // Bổ sung Suspense
 import { useSearchParams } from "next/navigation";     // Bổ sung useSearchParams để đọc URL
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
-import Loading from "@/components/Loading";
+import ReviewPageSkeleton from "@/components/ReviewPageSkeleton";
 import ReviewPopup from "@/components/ReviewPopup";
 import {
     BookOpen, Calculator, CalendarDays, CheckCircle2, ChevronRight,
@@ -82,7 +82,7 @@ function ReviewContent() {
         }
     };
 
-    if (loading || status === "loading") return <Loading />;
+    if (loading || status === "loading") return <ReviewPageSkeleton />;
 
     const filteredResults = results.filter(r =>
         testType === "full" ? !r.isSectional : r.isSectional
@@ -438,7 +438,7 @@ function ReviewContent() {
 }
 export default function GridReviewPage() {
     return (
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<ReviewPageSkeleton />}>
             <ReviewContent />
         </Suspense>
     );
