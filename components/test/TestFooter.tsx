@@ -72,8 +72,7 @@ export default function TestFooter({
                             </div>
                         </div>
 
-                        <div className="mx-auto mt-4 flex max-h-[196px] w-full max-w-[500px] flex-wrap justify-start gap-x-[14px] gap-y-[18px] overflow-y-auto px-1 pb-1 pt-3">
-                            {questions.map((q, i) => {
+                        <div className="mx-auto mt-4 flex max-h-[196px] w-full max-w-[500px] flex-wrap justify-start gap-x-[14px] gap-y-[18px] overflow-y-auto px-1 pb-1 pt-5">                            {questions.map((q, i) => {
                                 const isAnswered = !!answers[q._id];
                                 const isFlagged = !!flagged[q._id];
                                 const isCurrent = i === currentIndex;

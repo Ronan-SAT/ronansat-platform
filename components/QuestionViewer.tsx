@@ -182,7 +182,7 @@ export default function QuestionViewer({
                     : "font-medium text-slate-700 hover:font-semibold hover:text-[#1e3a5f] hover:underline hover:underline-offset-2"
                 }`}
               >
-                <Bookmark className={`h-[13px] w-[13px] ${isFlagged ? "fill-current" : ""}`} strokeWidth={1.9} />
+                <Bookmark className={`h-[18px] w-[18px] ${isFlagged ? "fill-current text-[#DE4B5B]" : ""}`} strokeWidth={1.9} />
                 Mark for Review
               </button>
 
