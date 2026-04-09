@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
-import { ListPlus, CheckCircle, Save, Upload, FileUp } from "lucide-react";
+import { ListPlus, CheckCircle, Save, Upload, FileUp, ChevronDown } from "lucide-react";
 import { CldUploadWidget } from "next-cloudinary";
 
 // Đã XÓA thư viện papaparse vì Javascript đọc được JSON tự nhiên
@@ -11,6 +11,7 @@ import { CldUploadWidget } from "next-cloudinary";
 export default function CreateQuestionForm({ tests }: { tests: any[] }) {
     // State cho việc chọn Bài Test
     const [selectedTestId, setSelectedTestId] = useState("");
+    const [isTestDropdownOpen, setIsTestDropdownOpen] = useState(false);
 
     // THAY ĐỔI: State cho việc xử lý JSON (thay vì CSV)
     const [parsedJSONQuestions, setParsedJSONQuestions] = useState<any[]>([]); // Kho chứa tạm các câu hỏi JSON
@@ -233,30 +234,56 @@ export default function CreateQuestionForm({ tests }: { tests: any[] }) {
     const hasTable = questionForm.passage?.includes('<table') || questionForm.questionText?.includes('<table');
     const needsImage = questionForm.imageUrl === "Cần thêm ảnh";
     const hasRealImage = questionForm.imageUrl && questionForm.imageUrl.startsWith("http");
+    const selectedTest = tests.find((test) => test._id === selectedTestId);
 
 
 
     return (
         <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-visible">
                 <div className="p-5 border-b border-slate-200 bg-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-slate-800 font-bold">
                         <ListPlus className="w-5 h-5 text-blue-600" />
                         Step 2: Add Questions to Test
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div
+                        className="relative flex items-center gap-2"
+                        onBlur={(event) => {
+                            const nextFocus = event.relatedTarget as Node | null;
+                            if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
+                                setIsTestDropdownOpen(false);
+                            }
+                        }}
+                    >
                         <label className="text-sm font-semibold text-slate-600">Select Test:</label>
-                        <select
-                            value={selectedTestId}
-                            onChange={(e) => setSelectedTestId(e.target.value)}
-                            className="px-3 py-1.5 border border-slate-300 rounded-md font-medium text-sm outline-none bg-white text-slate-900 min-w-[200px]"
+                        <button
+                            type="button"
+                            disabled={tests.length === 0}
+                            onClick={() => setIsTestDropdownOpen((isOpen) => !isOpen)}
+                            className="flex min-w-[240px] max-w-[420px] items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-left text-sm font-medium text-slate-900 outline-none transition hover:border-blue-400 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {tests.map(t => (
-                                <option key={t._id} value={t._id}>{t.title}</option>
-                            ))}  
-                            {tests.length === 0 && <option value="">No tests available</option>}
-                        </select>
+                            <span className="truncate">{selectedTest?.title || "No tests available"}</span>
+                            <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isTestDropdownOpen ? "rotate-180" : ""}`} />
+                        </button>
+
+                        {isTestDropdownOpen && tests.length > 0 && (
+                            <div className="absolute right-0 top-full z-50 mt-2 w-[min(32rem,calc(100vw-3rem))] max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-xl">
+                                {tests.map(t => (
+                                    <button
+                                        key={t._id}
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedTestId(t._id);
+                                            setIsTestDropdownOpen(false);
+                                        }}
+                                        className={`block w-full px-3 py-2 text-left text-sm transition hover:bg-blue-50 hover:text-blue-700 ${t._id === selectedTestId ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}
+                                    >
+                                        {t.title}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 

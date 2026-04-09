@@ -21,7 +21,7 @@ const QUOTES: Quote[] = [
   { author: "Will Smith", text: "Outwork the rest." },
   { author: "The Rock", text: "Consistency wins." },
   { author: "Jack Ma", text: "Don’t give up." },
-  { author: "Andrew Tate", text: "Discipline first." },
+  { author: "Khabib", text: "Discipline first." },
   { author: "Naval Ravikant", text: "Build and learn." },
   { author: "Cal Newport", text: "Focus deeply." },
   { author: "James Clear", text: "Trust the system." },
