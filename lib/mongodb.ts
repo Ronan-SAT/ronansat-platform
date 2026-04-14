@@ -5,14 +5,6 @@ type MongooseCache = {
   promise: Promise<typeof mongoose> | null;
 };
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local"
-  );
-}
-
 /**
  * Global is used here to maintain a cached connection across hot reloads
  * in development. This prevents connections growing exponentially
@@ -25,6 +17,12 @@ const cached: MongooseCache = globalWithMongoose.mongoose ?? { conn: null, promi
 globalWithMongoose.mongoose = cached;
 
 async function dbConnect() {
+  const mongodbUri = process.env.MONGODB_URI;
+
+  if (!mongodbUri) {
+    throw new Error("Please define the MONGODB_URI environment variable.");
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -34,7 +32,7 @@ async function dbConnect() {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI as string, opts).then((mongoose) => {
+    cached.promise = mongoose.connect(mongodbUri, opts).then((mongoose) => {
       return mongoose;
     });
   }
