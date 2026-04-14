@@ -26,18 +26,18 @@ const QUICK_ACTIONS: QuickAction[] = [
     accentClassName: "bg-accent-2 text-white",
   },
   {
-    href: "/review",
-    title: "Review",
-    description: "Open recent reports and mistakes.",
-    icon: BarChart2,
-    accentClassName: "bg-surface-white text-ink-fg",
-  },
-  {
     href: "/vocab",
     title: "Vocab",
     description: "Keep flashcards and word work moving.",
     icon: LibraryBig,
     accentClassName: "bg-accent-1 text-ink-fg",
+  },
+  {
+    href: "/review",
+    title: "Review",
+    description: "Open recent reports and mistakes.",
+    icon: BarChart2,
+    accentClassName: "bg-surface-white text-ink-fg",
   },
   {
     href: "/hall-of-fame",

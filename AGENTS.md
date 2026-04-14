@@ -58,6 +58,7 @@ This file is the canonical agent-facing instruction document for repository-wide
 - Keep `README.md` aligned with any workflow, environment, or architecture changes that affect contributors.
 - When a change introduces or updates a global convention, design rule, route contract, or memory workflow, update `AGENTS.md` in the same change.
 - Prefer English for all new or edited documentation, code comments, identifiers shown to contributors, and developer-facing text. If touched code contains comments in another language, translate those comments to English instead of preserving mixed-language commentary unless the user explicitly requests otherwise.
+- Default user-facing product copy to plain language that students and parents can parse quickly. Prefer common words like `Score Change`, `Sessions`, and `Latest Score` over analytics-heavy or finance-style labels unless the domain truly requires them.
 
 ## External memory rules
 

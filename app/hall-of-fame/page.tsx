@@ -91,18 +91,21 @@ export default function HallOfFame() {
             </div>
 
             {totalPages > 1 ? (
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="mx-auto mt-10 flex w-full max-w-md items-center justify-center gap-3 sm:max-w-none">
                 <button
                   type="button"
                   onClick={() => setCurrentPage((page) => Math.max(page - 1, 1))}
                   disabled={currentPage === 1}
-                  className="workbook-button workbook-button-secondary min-w-32 disabled:opacity-50"
+                  aria-label="Previous page"
+                  className="workbook-button workbook-button-secondary h-14 w-14 shrink-0 px-0 disabled:opacity-50 sm:w-auto sm:min-w-32 sm:px-4"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  <ChevronLeft className="h-5 w-5 sm:hidden" />
+                  <span className="hidden sm:inline-flex sm:items-center sm:gap-2">
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </span>
                 </button>
-
-                <div className="workbook-sticker bg-surface-white text-ink-fg">
+                <div className="workbook-sticker h-14 min-w-0 flex-1 justify-center self-center bg-surface-white text-ink-fg sm:flex-none">
                   Page {currentPage} of {totalPages}
                 </div>
 
@@ -110,10 +113,14 @@ export default function HallOfFame() {
                   type="button"
                   onClick={() => setCurrentPage((page) => Math.min(page + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="workbook-button workbook-button-secondary min-w-32 disabled:opacity-50"
+                  aria-label="Next page"
+                  className="workbook-button workbook-button-secondary h-14 w-14 shrink-0 px-0 disabled:opacity-50 sm:w-auto sm:min-w-32 sm:px-4"
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-5 w-5 sm:hidden" />
+                  <span className="hidden sm:inline-flex sm:items-center sm:gap-2">
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
                 </button>
               </div>
             ) : null}

@@ -103,3 +103,4 @@ Modals must not have soft backdrops. Use a `bg-ink-fg/20` backdrop and a large `
 6. **Define Logic Separately:** Keep the "Brutal UI" in its own component layer, passing state as props to avoid cluttering the visual definitions.
 7. **Interactive Feedback:** Every click must have a visual "press" state (e.g., `active:translate-x-0.5 active:translate-y-0.5 active:shadow-none`).
 8. **Theme New UI Primitives:** If a new component comes from shadcn, Radix, or another UI base layer, theme it into the workbook language before it reaches product screens.
+9. **Use Plain Language:** Default to simple words that students and parents will understand quickly. Prefer labels like `Score Change`, `Sessions`, and `Latest Score` over internal, finance-style, or analytics-heavy terms such as `Net Change`, `Delta`, `Velocity`, or `Session Range` unless a feature truly requires domain-specific wording.

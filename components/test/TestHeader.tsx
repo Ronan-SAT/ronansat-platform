@@ -114,7 +114,7 @@ export default function TestHeader({
         </div>
 
         <div className="hidden flex-1 items-center justify-end gap-4 sm:flex">
-          {reportContext ? <ReportErrorButton context={reportContext} compact /> : null}
+          {reportContext ? <ReportErrorButton context={reportContext} compact theme={theme} /> : null}
 
           {showCalculator ? (
             <button
@@ -140,6 +140,7 @@ export default function TestHeader({
             </AlertDialogTrigger>
 
             <ConfirmDialogContent
+              theme={theme}
               title={confirmDialogTitle}
               description={confirmDialogDescription}
               onConfirm={onTimeUp}
@@ -148,12 +149,12 @@ export default function TestHeader({
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <button type="button" className={`flex items-center justify-center rounded-full p-2 text-ink-fg outline-none ${headerTheme.leaveButtonClass}`}>
+              <button type="button" className={`flex items-center justify-center rounded-full p-2 outline-none ${headerTheme.leaveButtonClass}`}>
                 <CircleX className="h-5 w-5" />
               </button>
             </AlertDialogTrigger>
 
-            <LeaveDialogContent onLeave={onLeave} />
+            <LeaveDialogContent theme={theme} onLeave={onLeave} />
           </AlertDialog>
         </div>
 
@@ -194,7 +195,7 @@ export default function TestHeader({
             {reportContext ? (
               <div className={`flex items-center justify-between ${headerTheme.mobileMenuSectionClass}`}>
                 <span className="text-sm font-bold uppercase tracking-[0.12em]">Feedback</span>
-                <ReportErrorButton context={reportContext} compact />
+                <ReportErrorButton context={reportContext} compact theme={theme} />
               </div>
             ) : null}
 
@@ -205,7 +206,7 @@ export default function TestHeader({
                   setMobileMenuOpen(false);
                   onToggleCalculator?.();
                 }}
-                className={`flex w-full items-center justify-between px-3 py-3 text-sm font-bold uppercase tracking-[0.12em] ${headerTheme.mobileMenuSecondaryActionClass} ${theme === "ronan" ? "rounded-2xl" : "rounded-full"}`}
+                className={`flex w-full items-center justify-between px-3 py-3 text-sm font-bold uppercase tracking-[0.12em] ${headerTheme.mobileMenuSecondaryActionClass} ${headerTheme.mobileMenuActionShapeClass}`}
               >
                 Calculator
                 <Calculator className="h-4 w-4" />
@@ -229,7 +230,7 @@ export default function TestHeader({
                 setMobileMenuOpen(false);
                 setMobileLeaveOpen(true);
               }}
-              className={`flex w-full items-center justify-center px-4 py-3 text-sm font-bold ${headerTheme.leaveButtonClass} ${theme === "ronan" ? "rounded-2xl border-2" : "rounded-full border"}`}
+              className={`flex w-full items-center justify-center px-4 py-3 text-sm font-bold ${headerTheme.leaveButtonClass} ${headerTheme.leaveButtonShapeClass}`}
             >
               Quit
             </button>
@@ -239,6 +240,7 @@ export default function TestHeader({
 
       <AlertDialog open={mobileConfirmOpen} onOpenChange={setMobileConfirmOpen}>
         <ConfirmDialogContent
+          theme={theme}
           title={confirmDialogTitle}
           description={confirmDialogDescription}
           onConfirm={() => {
@@ -250,6 +252,7 @@ export default function TestHeader({
 
       <AlertDialog open={mobileLeaveOpen} onOpenChange={setMobileLeaveOpen}>
         <LeaveDialogContent
+          theme={theme}
           onLeave={() => {
             setMobileLeaveOpen(false);
             onLeave();
@@ -261,30 +264,34 @@ export default function TestHeader({
 }
 
 function ConfirmDialogContent({
+  theme,
   title,
   description,
   onConfirm,
 }: {
+  theme: TestingRoomTheme;
   title: string;
   description: string;
   onConfirm: () => void;
 }) {
+  const dialogTheme = getTestingRoomThemePreset(theme).dialog;
+
   return (
-    <AlertDialogContent>
+    <AlertDialogContent className={dialogTheme.contentClass}>
       <AlertDialogHeader>
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink-fg bg-primary text-ink-fg brutal-shadow-sm sm:h-11 sm:w-11">
+        <div className={dialogTheme.iconPrimaryClass}>
           <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        <AlertDialogTitle>{title}</AlertDialogTitle>
-        <AlertDialogDescription>{description}</AlertDialogDescription>
+        <AlertDialogTitle className={dialogTheme.titleClass}>{title}</AlertDialogTitle>
+        <AlertDialogDescription className={dialogTheme.descriptionClass}>{description}</AlertDialogDescription>
       </AlertDialogHeader>
 
       <AlertDialogFooter>
         <AlertDialogCancel asChild>
-          <AlertDialogCancelButton>No</AlertDialogCancelButton>
+          <AlertDialogCancelButton className={dialogTheme.cancelButtonClass}>No</AlertDialogCancelButton>
         </AlertDialogCancel>
         <AlertDialogAction asChild>
-          <AlertDialogActionButton className="!bg-primary !text-ink-fg" onClick={onConfirm}>
+          <AlertDialogActionButton className={dialogTheme.confirmButtonClass} onClick={onConfirm}>
             Yes
           </AlertDialogActionButton>
         </AlertDialogAction>
@@ -293,23 +300,25 @@ function ConfirmDialogContent({
   );
 }
 
-function LeaveDialogContent({ onLeave }: { onLeave: () => void }) {
+function LeaveDialogContent({ theme, onLeave }: { theme: TestingRoomTheme; onLeave: () => void }) {
+  const dialogTheme = getTestingRoomThemePreset(theme).dialog;
+
   return (
-    <AlertDialogContent>
+    <AlertDialogContent className={dialogTheme.contentClass}>
       <AlertDialogHeader>
-        <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-ink-fg bg-[var(--color-accent-3)] text-surface-white brutal-shadow-sm sm:h-11 sm:w-11">
+        <div className={dialogTheme.iconDangerClass}>
           <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        <AlertDialogTitle>Leave Exam?</AlertDialogTitle>
-        <AlertDialogDescription>Are you sure you want to leave? Your progress will not be saved.</AlertDialogDescription>
+        <AlertDialogTitle className={dialogTheme.titleClass}>Leave Exam?</AlertDialogTitle>
+        <AlertDialogDescription className={dialogTheme.descriptionClass}>Are you sure you want to leave? Your progress will not be saved.</AlertDialogDescription>
       </AlertDialogHeader>
 
       <AlertDialogFooter>
         <AlertDialogCancel asChild>
-          <AlertDialogCancelButton>Stay</AlertDialogCancelButton>
+          <AlertDialogCancelButton className={dialogTheme.cancelButtonClass}>Stay</AlertDialogCancelButton>
         </AlertDialogCancel>
         <AlertDialogAction asChild>
-          <AlertDialogActionButton onClick={onLeave}>Leave</AlertDialogActionButton>
+          <AlertDialogActionButton className={dialogTheme.dangerButtonClass} onClick={onLeave}>Leave</AlertDialogActionButton>
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

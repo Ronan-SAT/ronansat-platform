@@ -1,21 +1,14 @@
 import Link from "next/link";
 
+import { getDisplayScore, getResultDateValue, getResultTimestamp } from "@/components/dashboard/dashboardResultUtils";
 import type { UserResultSummary } from "@/types/testLibrary";
 
 type RecentResultsListProps = {
   results: UserResultSummary[];
 };
 
-function getDisplayScore(result: UserResultSummary) {
-  if (result.isSectional) {
-    return result.score || result.totalScore || 0;
-  }
-
-  return Math.max(400, result.totalScore || result.score || 0);
-}
-
 function getDisplayDate(result: UserResultSummary) {
-  const rawDate = result.createdAt || result.updatedAt || result.date;
+  const rawDate = getResultDateValue(result);
   if (!rawDate) {
     return "No date";
   }
@@ -28,13 +21,7 @@ function getDisplayDate(result: UserResultSummary) {
 }
 
 export default function RecentResultsList({ results }: RecentResultsListProps) {
-  const recentResults = [...results]
-    .sort(
-      (left, right) =>
-        new Date(right.createdAt || right.updatedAt || right.date || 0).getTime() -
-        new Date(left.createdAt || left.updatedAt || left.date || 0).getTime(),
-    )
-    .slice(0, 5);
+  const recentResults = [...results].sort((left, right) => getResultTimestamp(right) - getResultTimestamp(left)).slice(0, 5);
 
   return (
     <section className="workbook-panel overflow-hidden">

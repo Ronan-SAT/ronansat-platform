@@ -219,6 +219,12 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 
 - `components/QuestionViewer.tsx` now collapses the split passage-and-question layout into a vertical stack on smaller screens, keeps the draggable divider desktop-only, and reduces mobile padding and answer density so the exam room stays usable on narrow devices.
 
+### 2026-04-14 Dracula Testing Room Theme
+
+- `lib/testingRoomTheme.ts` now includes a third `dracula` preset with a dark graphite shell, crimson accents, and shared styling tokens for the test shell, header, footer, viewer, Desmos overlay, and settings preview card.
+- `components/test/TestHeader.tsx` now reads mobile control shape classes from the preset itself instead of hard-coding a `ronan` vs non-`ronan` split, so future themes can define their own button geometry cleanly.
+- `components/QuestionViewer.tsx` now also reads the SPR label color and crossed-out answer strike color from the active preset so dark testing-room themes keep the core question UI legible.
+
 ### 2026-04-14 PDF Booklet Alignment
 
 - `components/DownloadPdfButton.tsx` still drives the client-side print/export flow, but the printable template in `utils/questionTemplate.ts` is now being pushed toward the official SAT digital practice booklet structure instead of the earlier generic Ronan export layout.
@@ -241,3 +247,9 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 - `components/test/TestHeader.tsx` now wraps safely on mobile by moving the timer onto its own row, shrinking control sizing, and preventing the title, timer, and action cluster from overlapping.
 - `components/test/TestFooter.tsx` now uses a shorter mobile bar, a more compact navigator label, smaller action buttons, and a lower mobile question-grid sheet so bottom controls fit short screens better.
 - Targeted eslint passed for `components/QuestionViewer.tsx`, `components/test/TestHeader.tsx`, and `components/test/TestFooter.tsx` after the responsive adjustments.
+
+### 2026-04-14 Student Dashboard Trend Panel
+
+- `app/dashboard/page.tsx` now gives the student dashboard a dedicated improvement graph panel ahead of the leaderboard instead of using that primary slot only for rankings.
+- The new `components/dashboard/ImprovementTrendPanel.tsx` derives a daily best-score trend from the existing dashboard results payload, supports `15 Days` and `Month` windows without a new API, and shows net change, latest score, and session count for the selected window.
+- A local shadcn-style chart base now lives in `components/ui/chart.tsx`, themed to workbook tokens and used with `recharts` so future charts can stay visually consistent without bootstrapping the whole repo into full shadcn component generation.

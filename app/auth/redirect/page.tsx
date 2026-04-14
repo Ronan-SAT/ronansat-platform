@@ -10,9 +10,5 @@ export default async function AuthRedirectPage() {
     redirect("/auth");
   }
 
-  if (session.user.role === "ADMIN") {
-    redirect("/admin");
-  }
-
   redirect("/dashboard");
 }

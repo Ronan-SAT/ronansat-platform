@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 
 import LeaderboardTable from "@/components/dashboard/LeaderboardTable";
 import LeaderboardTableSkeleton from "@/components/dashboard/LeaderboardTableSkeleton";
+import ImprovementTrendPanel from "@/components/dashboard/ImprovementTrendPanel";
 import RecentResultsList from "@/components/dashboard/RecentResultsList";
 import StudentDashboardQuickActions from "@/components/dashboard/StudentDashboardQuickActions";
 import UserStatsPanel from "@/components/dashboard/UserStatsPanel";
@@ -99,10 +100,11 @@ export default function DashboardPage() {
         <div className="space-y-8">
           <StudentDashboardQuickActions />
           {loading ? <UserStatsPanelSkeleton /> : <UserStatsPanel userStats={userStats} userResults={userResults} />}
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
-            {loading ? <LeaderboardTableSkeleton /> : <LeaderboardTable leaderboard={leaderboard} />}
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+            {loading ? <div className="workbook-panel h-[32rem] animate-pulse bg-surface-white" /> : <ImprovementTrendPanel results={userResults} />}
             <RecentResultsList results={userResults} />
           </div>
+          {loading ? <LeaderboardTableSkeleton /> : <LeaderboardTable leaderboard={leaderboard} />}
         </div>
       </main>
     </div>
@@ -128,10 +130,11 @@ function DashboardLoadingState() {
             ))}
           </div>
           <UserStatsPanelSkeleton />
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
-            <LeaderboardTableSkeleton />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+            <div className="workbook-panel h-[32rem] animate-pulse bg-surface-white" />
             <div className="workbook-panel h-96 animate-pulse bg-surface-white" />
           </div>
+          <LeaderboardTableSkeleton />
         </div>
       </main>
     </div>

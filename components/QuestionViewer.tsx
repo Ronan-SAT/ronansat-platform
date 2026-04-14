@@ -42,6 +42,7 @@ export default function QuestionViewer({
   leftWidth = 50,
 }: QuestionViewerProps) {
   const viewerTheme = getTestingRoomThemePreset(theme).viewer;
+  const readingFontClass = viewerTheme.readingFontClass;
   const optionLabels = ["A", "B", "C", "D"];
   const [crossedOutByQuestion, setCrossedOutByQuestion] = useState<Record<string, string[]>>({});
   const [showEliminationByQuestion, setShowEliminationByQuestion] = useState<Record<string, boolean>>({});
@@ -151,7 +152,7 @@ export default function QuestionViewer({
               theme={theme}
               annotations={currentAnnotations.passage}
               onChange={(nextAnnotations) => updateAnnotations("passage", nextAnnotations)}
-              className={`whitespace-pre-wrap p-4 text-[14px] leading-relaxed selection:text-black sm:p-6 sm:text-[15px] [font-family:Georgia,'Times_New_Roman',Times,serif] ${viewerTheme.passageClass}`}
+              className={`whitespace-pre-wrap p-4 text-[14px] leading-relaxed selection:text-black sm:p-6 sm:text-[15px] ${readingFontClass} ${viewerTheme.passageClass}`}
               sourceQuestionId={question._id}
             >
               {passageContent}
@@ -199,7 +200,7 @@ export default function QuestionViewer({
               <SelectableTextPanel
                 annotations={currentAnnotations.passage}
                 onChange={(nextAnnotations) => updateAnnotations("passage", nextAnnotations)}
-                className={`whitespace-pre-wrap p-4 text-[14px] leading-relaxed selection:text-black [font-family:Georgia,'Times_New_Roman',Times,serif] ${viewerTheme.passageClass}`}
+                className={`whitespace-pre-wrap p-4 text-[14px] leading-relaxed selection:text-black ${readingFontClass} ${viewerTheme.passageClass}`}
                 sourceQuestionId={question._id}
               >
                 {passageContent}
@@ -255,7 +256,7 @@ export default function QuestionViewer({
           theme={theme}
           annotations={currentAnnotations.questionText}
           onChange={(nextAnnotations) => updateAnnotations("questionText", nextAnnotations)}
-          className={`mx-4 px-4 pb-4 pt-4 text-[14px] leading-relaxed sm:mx-6 sm:px-6 sm:text-[15px] [font-family:Georgia,'Times_New_Roman',Times,serif] ${viewerTheme.promptClass}`}
+          className={`mx-4 px-4 pb-4 pt-4 text-[14px] leading-relaxed sm:mx-6 sm:px-6 sm:text-[15px] ${readingFontClass} ${viewerTheme.promptClass}`}
           sourceQuestionId={question._id}
         >
           {questionTextContent}
@@ -264,7 +265,7 @@ export default function QuestionViewer({
         <div className="flex-1 px-4 pb-6 sm:px-6 sm:pb-8">
           {question.questionType === "spr" ? (
             <div className="mt-4">
-              <label className="mb-3 block text-xs font-bold uppercase tracking-[0.14em] text-ink-fg sm:text-sm sm:tracking-[0.16em]">
+              <label className={`mb-3 block text-xs font-bold uppercase tracking-[0.14em] sm:text-sm sm:tracking-[0.16em] ${viewerTheme.sprLabelClass}`}>
                 Student-Produced Response
               </label>
               <input
@@ -303,7 +304,7 @@ export default function QuestionViewer({
                       onClick={() => !isCrossed && handleChoiceSelect(question._id, storedChoiceCode)}
                     >
                       {isCrossed ? (
-                        <div className="pointer-events-none absolute left-4 right-4 top-1/2 z-10 h-[1.5px] bg-ink-fg" />
+                        <div className={`pointer-events-none absolute left-4 right-4 top-1/2 z-10 h-[1.5px] ${viewerTheme.crossOutLineClass}`} />
                       ) : null}
 
                         <div
@@ -322,7 +323,7 @@ export default function QuestionViewer({
                         theme={theme}
                         annotations={currentAnnotations.choices[storedChoiceCode] ?? []}
                         onChange={(nextAnnotations) => updateChoiceAnnotations(storedChoiceCode, nextAnnotations)}
-                        className={`min-w-0 flex-1 text-[14px] leading-snug sm:text-[15px] [font-family:Georgia,'Times_New_Roman',Times,serif] ${
+                        className={`min-w-0 flex-1 text-[14px] leading-snug sm:text-[15px] ${readingFontClass} ${
                           isCrossed ? viewerTheme.choiceCrossedTextClass : viewerTheme.choiceTextClass
                         }`}
                         sourceQuestionId={question._id}

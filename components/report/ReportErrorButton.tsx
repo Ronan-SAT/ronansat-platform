@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Send, X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 
 import { API_PATHS } from "@/lib/apiPaths";
+import { getTestingRoomThemePreset, type TestingRoomTheme } from "@/lib/testingRoomTheme";
 
 type ReportErrorButtonProps = {
   context: {
@@ -16,9 +17,15 @@ type ReportErrorButtonProps = {
   };
   className?: string;
   compact?: boolean;
+  theme?: TestingRoomTheme;
 };
 
-export function ReportErrorButton({ context, className = "", compact = false }: ReportErrorButtonProps) {
+export function ReportErrorButton({
+  context,
+  className = "",
+  compact = false,
+  theme,
+}: ReportErrorButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [errorType, setErrorType] = useState<"Question" | "Answers" | "Missing Graph/Image">("Question");
   const [note, setNote] = useState("");
@@ -29,6 +36,9 @@ export function ReportErrorButton({ context, className = "", compact = false }: 
     () => `Q${context.questionNumber} - ${context.section} - Module ${context.module}`,
     [context.module, context.questionNumber, context.section],
   );
+  const themePreset = theme ? getTestingRoomThemePreset(theme) : null;
+  const triggerClassName = themePreset?.header.reportTriggerClass;
+  const reportTheme = themePreset?.report;
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -81,27 +91,31 @@ export function ReportErrorButton({ context, className = "", compact = false }: 
           setIsOpen((current) => !current);
           setMessage(null);
         }}
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl border-2 border-ink-fg transition-all workbook-press ${
-          compact ? "bg-paper-bg text-ink-fg" : "bg-surface-white text-ink-fg"
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl transition-all ${
+          triggerClassName
+            ? triggerClassName
+            : compact
+              ? "border-2 border-ink-fg bg-paper-bg text-ink-fg workbook-press"
+              : "border-2 border-ink-fg bg-surface-white text-ink-fg workbook-press"
         }`}
       >
         <AlertTriangle className="h-4 w-4" />
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+10px)] z-[120] w-[320px] rounded-2xl border-2 border-ink-fg bg-surface-white p-4 brutal-shadow">
+        <div className={`absolute right-0 top-[calc(100%+10px)] z-[120] w-[320px] ${reportTheme?.panelClass ?? "rounded-2xl border-2 border-ink-fg bg-surface-white p-4 brutal-shadow"}`}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-sm font-black uppercase tracking-[0.14em] text-ink-fg">Report Error</div>
-              <div className="mt-1 text-[11px] leading-4 text-ink-fg/70">{title}</div>
+              <div className={reportTheme?.titleClass ?? "text-sm font-black uppercase tracking-[0.14em] text-ink-fg"}>Report Error</div>
+              <div className={reportTheme?.metaClass ?? "mt-1 text-[11px] leading-4 text-ink-fg/70"}>{title}</div>
             </div>
-            <button type="button" onClick={() => setIsOpen(false)} className="rounded-full border-2 border-ink-fg bg-paper-bg p-1 text-ink-fg workbook-press">
+            <button type="button" onClick={() => setIsOpen(false)} className={reportTheme?.closeButtonClass ?? "rounded-full border-2 border-ink-fg bg-paper-bg p-1 text-ink-fg workbook-press"}>
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="mt-4">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-fg/70">Error in</div>
+            <div className={reportTheme?.labelClass ?? "mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-fg/70"}>Error in</div>
             <div className="grid grid-cols-2 gap-2">
               {(["Question", "Answers", "Missing Graph/Image"] as const).map((option) => (
                 <button
@@ -112,8 +126,8 @@ export function ReportErrorButton({ context, className = "", compact = false }: 
                     option === "Missing Graph/Image" ? "col-span-2" : ""
                   } ${
                     errorType === option
-                      ? "border-2 border-ink-fg bg-primary text-ink-fg"
-                      : "border-2 border-ink-fg bg-surface-white text-ink-fg"
+                      ? reportTheme?.optionActiveClass ?? "border-2 border-ink-fg bg-primary text-ink-fg"
+                      : reportTheme?.optionIdleClass ?? "border-2 border-ink-fg bg-surface-white text-ink-fg"
                   }`}
                 >
                   {option}
@@ -123,25 +137,24 @@ export function ReportErrorButton({ context, className = "", compact = false }: 
           </div>
 
           <div className="mt-4">
-            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-fg/70">Details (optional)</label>
+            <label className={`${reportTheme?.labelClass ?? "mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-fg/70"} block`}>Details (optional)</label>
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={3}
               placeholder="Tell us what looks wrong..."
-              className="workbook-input min-h-[96px]"
+              className={reportTheme?.textareaClass ?? "workbook-input min-h-[96px]"}
             />
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <div className={`text-[12px] ${message === "Report sent." ? "text-accent-2" : message ? "text-accent-3" : "text-ink-fg/50"}`}>{message ?? ""}</div>
+            <div className={`text-[12px] ${message === "Report sent." ? reportTheme?.successMessageClass ?? "text-accent-2" : message ? reportTheme?.errorMessageClass ?? "text-accent-3" : reportTheme?.neutralMessageClass ?? "text-ink-fg/50"}`}>{message ?? ""}</div>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="workbook-button disabled:opacity-60"
+              className={reportTheme?.submitButtonClass ?? "workbook-button disabled:opacity-60"}
             >
-              <Send className="h-3.5 w-3.5" />
               {isSubmitting ? "Sending..." : "Send"}
             </button>
           </div>

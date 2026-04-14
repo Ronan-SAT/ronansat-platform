@@ -141,21 +141,24 @@ export default function SettingsPage() {
                             </p>
                         </div>
 
-                        <div className="-mx-1 overflow-x-auto pb-2 sm:mx-0 sm:overflow-visible">
-                            <div className="flex gap-3 px-1 sm:grid sm:grid-cols-2 xl:grid-cols-3 sm:px-0">
-                                {listTestingRoomThemePresets().map(({ theme }) => {
-                                    const isActive = testingRoomThemeHydrated && testingRoomTheme === theme;
+                        <div className="relative">
+                            <div className="-mx-1 overflow-x-auto overflow-y-visible pb-2">
+                                <div className="flex gap-3 px-1 pt-1">
+                                    {listTestingRoomThemePresets().map(({ theme }) => {
+                                        const isActive = testingRoomThemeHydrated && testingRoomTheme === theme;
 
-                                    return (
-                                        <ThemeOptionCard
-                                            key={theme}
-                                            theme={theme}
-                                            isActive={isActive}
-                                            onSelect={() => setTestingRoomTheme(theme)}
-                                        />
-                                    );
-                                })}
+                                        return (
+                                            <ThemeOptionCard
+                                                key={theme}
+                                                theme={theme}
+                                                isActive={isActive}
+                                                onSelect={() => setTestingRoomTheme(theme)}
+                                            />
+                                        );
+                                    })}
+                                </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -333,7 +336,7 @@ function ThemeOptionCard({
         <button
             type="button"
             onClick={onSelect}
-            className={`w-[min(20rem,calc(100vw-4.5rem))] min-w-[min(20rem,calc(100vw-4.5rem))] shrink-0 rounded-2xl border-2 p-4 text-left transition-all active:translate-x-0.5 active:translate-y-0.5 sm:w-auto sm:min-w-0 ${isActive
+            className={`w-[min(15rem,calc(100vw-4.5rem))] min-w-[min(15rem,calc(100vw-4.5rem))] shrink-0 rounded-2xl border-2 p-3 text-left transition-all active:translate-x-0.5 active:translate-y-0.5 ${isActive
                 ? "border-ink-fg bg-surface-white brutal-shadow"
                 : "border-ink-fg bg-paper-bg hover:-translate-x-0.5 hover:-translate-y-0.5 hover:brutal-shadow-sm"
                 }`}
@@ -342,12 +345,12 @@ function ThemeOptionCard({
                 <span className={`workbook-sticker ${preset.accentClass}`}>{preset.label}</span>
             </div>
 
-            <div className="mt-3 overflow-hidden rounded-xl border-2 border-ink-fg bg-surface-white">
+            <div className="mt-2.5 overflow-hidden rounded-xl border-2 border-ink-fg bg-surface-white">
                 <ThemeRoomPreview theme={theme} isActive={isActive} />
             </div>
 
-            <p className="mt-3 text-[15px] font-semibold text-ink-fg">{preset.cardTitle}</p>
-            <p className="mt-2 text-sm leading-6 text-ink-fg/75">{preset.description}</p>
+            <p className="mt-2.5 text-sm font-semibold text-ink-fg">{preset.cardTitle}</p>
+            <p className="mt-1.5 text-xs leading-5 text-ink-fg/75">{preset.description}</p>
         </button>
     );
 }

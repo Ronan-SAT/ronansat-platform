@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 type LibraryPaginationProps = {
   page: number;
   totalPages: number;
@@ -16,25 +18,29 @@ export function LibraryPagination({
   }
 
   return (
-    <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+    <div className="mx-auto mt-8 flex w-full max-w-md items-center justify-center gap-3 sm:max-w-none">
       <button
         type="button"
         onClick={onPrevious}
         disabled={page === 1}
-        className="workbook-button workbook-button-secondary h-14 min-w-32 disabled:opacity-50"
+        aria-label="Previous page"
+        className="workbook-button workbook-button-secondary h-14 w-14 shrink-0 px-0 disabled:opacity-50 sm:w-auto sm:min-w-32 sm:px-4"
       >
-        Previous
+        <ChevronLeft className="h-5 w-5 sm:hidden" />
+        <span className="hidden sm:inline">Previous</span>
       </button>
-      <div className="workbook-sticker h-14 justify-center bg-surface-white px-6 sm:px-7">
+      <div className="workbook-sticker h-14 min-w-0 flex-1 justify-center self-center bg-surface-white px-4 sm:flex-none sm:px-7">
         Page {page} of {totalPages}
       </div>
       <button
         type="button"
         onClick={onNext}
         disabled={page === totalPages}
-        className="workbook-button workbook-button-secondary h-14 min-w-32 disabled:opacity-50"
+        aria-label="Next page"
+        className="workbook-button workbook-button-secondary h-14 w-14 shrink-0 px-0 disabled:opacity-50 sm:w-auto sm:min-w-32 sm:px-4"
       >
-        Next
+        <ChevronRight className="h-5 w-5 sm:hidden" />
+        <span className="hidden sm:inline">Next</span>
       </button>
     </div>
   );
