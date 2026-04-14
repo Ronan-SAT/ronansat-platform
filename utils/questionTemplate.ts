@@ -439,7 +439,9 @@ function buildAnswerKeySection(stage: ActiveStage): string {
 }
 
 function buildAnswerKeyPage(testTitle: string, stages: ActiveStage[]): string {
-  const sectionHtml = stages.map((stage) => buildAnswerKeySection(stage)).join("");
+  const sectionHtml = stages
+    .map((stage) => buildAnswerKeySection(stage))
+    .join("");
 
   return `
     <section class="sat-page answer-key-page">
@@ -451,7 +453,7 @@ function buildAnswerKeyPage(testTitle: string, stages: ActiveStage[]): string {
       <div class="answer-key-grid">${sectionHtml}</div>
       <div class="answer-key-footer">
         <div>${escapeHtml(testTitle)}</div>
-        <div>Exported from learn.ronansat.com</div>
+        <div>PDF version from learn.ronansat.com</div>
       </div>
     </section>
   `;
@@ -547,7 +549,7 @@ function buildPageFooter(pageNumber: number, continueLabel?: string): string {
 
   return `
     <div class="page-footer">
-      <div class="page-legal">Unauthorized copying or reuse of any part of this page is illegal.</div>
+      <div class="page-legal">PDF version from learn.ronansat.com. Happy practicing!</div>
       <div class="page-number">${pageNumber}</div>
       ${actionHtml}
     </div>
@@ -625,6 +627,28 @@ function buildStopBanner(): string {
   `;
 }
 
+function buildQuestionColumns(
+  page: StageQuestionPage,
+  className?: string,
+): string {
+  const questionColumnsClassName = [
+    "question-columns",
+    page.showStopBanner ? "question-columns-with-stop" : "",
+    className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return `
+    <div class="${questionColumnsClassName}">
+      <div class="question-column">${buildQuestionColumn(page.leftColumn)}</div>
+      <div class="question-column-divider"></div>
+      <div class="question-column">${buildQuestionColumn(page.rightColumn)}</div>
+    </div>
+    ${page.showStopBanner ? buildStopBanner() : ""}
+  `;
+}
+
 function buildQuestionPage(
   stage: ActiveStage,
   page: StageQuestionPage,
@@ -634,21 +658,24 @@ function buildQuestionPage(
     <section class="sat-page content-page">
       ${buildTopBand(stage)}
       <div class="page-inner question-page-inner">
-        <div class="question-columns ${page.showStopBanner ? "question-columns-with-stop" : ""}">
-          <div class="question-column">${buildQuestionColumn(page.leftColumn)}</div>
-          <div class="question-column-divider"></div>
-          <div class="question-column">${buildQuestionColumn(page.rightColumn)}</div>
-        </div>
-        ${page.showStopBanner ? buildStopBanner() : ""}
+        ${buildQuestionColumns(page)}
       </div>
       ${buildPageFooter(pageNumber, page.showStopBanner ? undefined : "CONTINUE")}
     </section>
   `;
 }
 
-function buildVerbalIntroPage(stage: ActiveStage, pageNumber: number): string {
+function buildVerbalIntroPage(
+  stage: ActiveStage,
+  pageNumber: number,
+  embeddedQuestionPage?: StageQuestionPage,
+): string {
+  const introClassName = embeddedQuestionPage
+    ? "sat-page intro-page verbal-intro-page verbal-intro-page-with-questions"
+    : "sat-page intro-page verbal-intro-page";
+
   return `
-    <section class="sat-page intro-page">
+    <section class="${introClassName}">
       ${buildTopBand(stage)}
       <div class="page-inner intro-page-inner">
         <div class="section-title-wrap">
@@ -661,86 +688,129 @@ function buildVerbalIntroPage(stage: ActiveStage, pageNumber: number): string {
           <p>${escapeHtml(stage.directions)}</p>
         </div>
         <div class="section-rule section-rule-bottom"></div>
+        ${
+          embeddedQuestionPage
+            ? `<div class="verbal-intro-question-block">${buildQuestionColumns(embeddedQuestionPage, "embedded-question-columns")}</div>`
+            : ""
+        }
       </div>
-      ${buildPageFooter(pageNumber, "CONTINUE")}
+      ${buildPageFooter(pageNumber, embeddedQuestionPage?.showStopBanner ? undefined : "CONTINUE")}
     </section>
   `;
 }
 
 function buildMathReferenceSvg(): string {
   return `
-    <svg class="math-reference-svg" viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <g stroke="#111" stroke-width="2" fill="none" font-family="Georgia, 'Times New Roman', serif" font-size="14">
-        <circle cx="45" cy="55" r="28" />
-        <line x1="45" y1="55" x2="69" y2="55" />
-        <circle cx="45" cy="55" r="2.5" fill="#111" />
-        <text x="57" y="48" fill="#111">r</text>
-        <text x="15" y="120" fill="#111">A = πr²</text>
-        <text x="20" y="142" fill="#111">C = 2πr</text>
+    <svg class="math-reference-svg" viewBox="0 0 760 340" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g stroke="#111111" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="58" cy="70" r="36" />
+        <circle cx="58" cy="70" r="3.5" fill="#111111" />
+        <line x1="58" y1="70" x2="95" y2="70" />
 
-        <rect x="115" y="32" width="62" height="40" />
-        <text x="147" y="30" fill="#111">ℓ</text>
-        <text x="183" y="56" fill="#111">w</text>
-        <text x="114" y="140" fill="#111">A = ℓw</text>
+        <rect x="150" y="44" width="72" height="48" />
 
-        <polygon points="225,100 265,28 305,100" />
-        <line x1="265" y1="28" x2="265" y2="100" />
-        <text x="259" y="66" fill="#111">h</text>
-        <text x="259" y="114" fill="#111">b</text>
-        <text x="214" y="140" fill="#111">A = 1/2 bh</text>
+        <polygon points="288,94 324,34 360,94" />
+        <line x1="324" y1="34" x2="324" y2="94" stroke-dasharray="5 5" />
+        <path d="M324 80 H338 V94" />
 
-        <polygon points="360,100 310,30 310,100" />
-        <text x="290" y="70" fill="#111">b</text>
-        <text x="332" y="74" fill="#111">c</text>
-        <text x="337" y="114" fill="#111">a</text>
-        <text x="302" y="140" fill="#111">c² = a² + b²</text>
+        <polygon points="430,94 430,34 494,94" />
+        <path d="M430 80 H444 V94" />
 
-        <polygon points="420,102 480,102 510,52 510,102" />
-        <line x1="420" y1="102" x2="510" y2="102" />
-        <line x1="480" y1="102" x2="510" y2="52" />
-        <text x="438" y="132" fill="#111">x√3</text>
-        <text x="492" y="85" fill="#111">x</text>
-        <text x="467" y="68" fill="#111">60°</text>
-        <text x="429" y="86" fill="#111">30°</text>
-        <text x="448" y="44" fill="#111">2x</text>
+        <polygon points="574,90 686,90 686,32" />
+        <line x1="574" y1="90" x2="686" y2="32" />
+        <path d="M672 76 H686 V90" />
 
-        <polygon points="560,102 620,102 560,42" />
-        <text x="586" y="80" fill="#111">s√2</text>
-        <text x="586" y="116" fill="#111">s</text>
-        <text x="571" y="74" fill="#111">45°</text>
-        <text x="583" y="62" fill="#111">45°</text>
+        <polygon points="694,90 694,18 756,90" />
+        <path d="M694 76 H708 V90" />
 
-        <rect x="32" y="168" width="56" height="30" />
-        <line x1="88" y1="168" x2="102" y2="158" />
-        <line x1="88" y1="198" x2="102" y2="188" />
-        <line x1="102" y1="158" x2="102" y2="188" />
-        <text x="54" y="212" fill="#111">V = ℓwh</text>
+        <polygon points="26,224 118,224 118,176 140,160 140,208 118,224" />
+        <line x1="118" y1="176" x2="140" y2="160" />
+        <line x1="118" y1="224" x2="140" y2="208" />
 
-        <ellipse cx="150" cy="178" rx="26" ry="10" />
-        <line x1="124" y1="178" x2="124" y2="198" />
-        <line x1="176" y1="178" x2="176" y2="198" />
-        <ellipse cx="150" cy="198" rx="26" ry="10" />
-        <text x="148" y="172" fill="#111">r</text>
-        <text x="182" y="192" fill="#111">h</text>
-        <text x="126" y="212" fill="#111">V = πr²h</text>
+        <ellipse cx="208" cy="193" rx="34" ry="11" />
+        <line x1="174" y1="193" x2="174" y2="238" />
+        <line x1="242" y1="193" x2="242" y2="238" />
+        <ellipse cx="208" cy="238" rx="34" ry="11" />
+        <circle cx="208" cy="193" r="3.5" fill="#111111" />
+        <line x1="208" y1="193" x2="238" y2="193" />
 
-        <circle cx="245" cy="182" r="28" />
-        <ellipse cx="245" cy="182" rx="18" ry="8" />
-        <line x1="245" y1="182" x2="262" y2="182" />
-        <text x="256" y="175" fill="#111">r</text>
-        <text x="220" y="212" fill="#111">V = 4/3 πr³</text>
+        <circle cx="358" cy="212" r="40" />
+        <ellipse cx="358" cy="212" rx="30" ry="9" stroke-dasharray="7 6" />
+        <circle cx="358" cy="212" r="3.5" fill="#111111" />
+        <line x1="358" y1="212" x2="396" y2="212" />
 
-        <ellipse cx="345" cy="188" rx="24" ry="8" />
-        <line x1="321" y1="188" x2="345" y2="144" />
-        <line x1="369" y1="188" x2="345" y2="144" />
-        <line x1="345" y1="144" x2="345" y2="188" />
-        <text x="350" y="170" fill="#111">h</text>
-        <text x="336" y="212" fill="#111">V = 1/3 πr²h</text>
+        <ellipse cx="514" cy="226" rx="32" ry="10" />
+        <path d="M482 226 Q514 146 546 226" />
+        <line x1="514" y1="226" x2="514" y2="146" />
+        <path d="M514 212 H526 V226" />
+        <path d="M497 218 Q514 204 531 218" stroke-dasharray="7 6" />
 
-        <polygon points="430,198 472,198 485,170 448,146 416,170" />
-        <line x1="448" y1="146" x2="448" y2="198" />
-        <text x="452" y="174" fill="#111">h</text>
-        <text x="430" y="212" fill="#111">V = 1/3 ℓwh</text>
+        <polygon points="612,226 708,226 676,186 612,186" opacity="0" />
+        <polygon points="610,226 670,150 734,206 646,226" />
+        <line x1="646" y1="226" x2="646" y2="150" />
+        <line x1="610" y1="226" x2="704" y2="226" stroke-dasharray="7 6" />
+        <line x1="646" y1="226" x2="704" y2="226" />
+        <path d="M646 212 H658 V226" />
+        <line x1="610" y1="226" x2="670" y2="150" stroke-dasharray="7 6" />
+      </g>
+
+      <g fill="#111111" font-family="Georgia, 'Times New Roman', serif">
+        <text x="82" y="56" font-size="20" font-style="italic">r</text>
+
+        <text x="185" y="32" font-size="20" font-style="italic">ℓ</text>
+        <text x="230" y="70" font-size="20" font-style="italic">w</text>
+
+        <text x="318" y="62" font-size="20" font-style="italic">h</text>
+        <text x="320" y="118" font-size="20" font-style="italic">b</text>
+
+        <text x="414" y="64" font-size="20" font-style="italic">b</text>
+        <text x="456" y="64" font-size="20" font-style="italic">c</text>
+        <text x="458" y="118" font-size="20" font-style="italic">a</text>
+
+        <text x="630" y="52" font-size="18">60°</text>
+        <text x="610" y="86" font-size="18">30°</text>
+        <text x="615" y="42" font-size="20" font-style="italic">2x</text>
+        <text x="690" y="68" font-size="20" font-style="italic">x</text>
+        <text x="624" y="120" font-size="20" font-style="italic">x√3</text>
+
+        <text x="710" y="56" font-size="18">45°</text>
+        <text x="752" y="86" font-size="18" text-anchor="end">45°</text>
+        <text x="678" y="70" font-size="20" font-style="italic">s</text>
+        <text x="714" y="70" font-size="20" font-style="italic">s√2</text>
+        <text x="724" y="118" font-size="20" font-style="italic">s</text>
+
+        <text x="98" y="194" font-size="20" font-style="italic">h</text>
+        <text x="120" y="232" font-size="20" font-style="italic">w</text>
+        <text x="80" y="262" font-size="20" font-style="italic">ℓ</text>
+
+        <text x="198" y="181" font-size="20" font-style="italic">r</text>
+        <text x="247" y="217" font-size="20" font-style="italic">h</text>
+
+        <text x="384" y="203" font-size="20" font-style="italic">r</text>
+
+        <text x="524" y="181" font-size="20" font-style="italic">h</text>
+        <text x="548" y="222" font-size="20" font-style="italic">r</text>
+
+        <text x="655" y="188" font-size="20" font-style="italic">h</text>
+        <text x="680" y="246" font-size="20" font-style="italic">w</text>
+        <text x="636" y="264" font-size="20" font-style="italic">ℓ</text>
+
+        <text x="16" y="136" font-size="24" font-style="italic">A = πr²</text>
+        <text x="24" y="172" font-size="24" font-style="italic">C = 2πr</text>
+
+        <text x="162" y="164" font-size="24" font-style="italic">A = ℓw</text>
+
+        <text x="286" y="164" font-size="24" font-style="italic">A = 1/2 bh</text>
+
+        <text x="412" y="164" font-size="24" font-style="italic">c² = a² + b²</text>
+
+        <text x="608" y="154" font-size="17">Special Right Triangles</text>
+
+        <text x="44" y="314" font-size="24" font-style="italic">V = ℓwh</text>
+        <text x="172" y="314" font-size="24" font-style="italic">V = πr²h</text>
+        <text x="298" y="314" font-size="24" font-style="italic">V = 4/3 πr³</text>
+        <text x="470" y="314" font-size="24" font-style="italic">V = 1/3 πr²h</text>
+        <text x="618" y="314" font-size="24" font-style="italic">V = 1/3 ℓwh</text>
       </g>
     </svg>
   `;
@@ -856,7 +926,7 @@ const CODE39_PATTERNS: Record<string, string> = {
   "-": "nwnnnnwnw",
   ".": "wwnnnnwnn",
   " ": "nwwnnnwnn",
-  "$": "nwnwnwnnn",
+  $: "nwnwnwnnn",
   "/": "nwnwnnnwn",
   "+": "nwnnnwnwn",
   "%": "nnnwnwnwn",
@@ -881,12 +951,18 @@ function buildCode39BarcodeSvg(value: string): string {
       continue;
     }
 
-    for (let patternIndex = 0; patternIndex < pattern.length; patternIndex += 1) {
+    for (
+      let patternIndex = 0;
+      patternIndex < pattern.length;
+      patternIndex += 1
+    ) {
       const unit = pattern[patternIndex] === "w" ? wideWidth : narrowWidth;
       const isBar = patternIndex % 2 === 0;
 
       if (isBar) {
-        bars.push(`<rect x="${x}" y="0" width="${unit}" height="${barHeight}" fill="#111111" />`);
+        bars.push(
+          `<rect x="${x}" y="0" width="${unit}" height="${barHeight}" fill="#111111" />`,
+        );
       }
 
       x += unit;
@@ -917,7 +993,11 @@ function formatCoverCodeLabel(value: string): string {
   return normalized;
 }
 
-function buildCoverPage(testTitle: string, sectionName?: string, testId?: string): string {
+function buildCoverPage(
+  testTitle: string,
+  sectionName?: string,
+  testId?: string,
+): string {
   const coverCode = (testId || "").trim() || buildCoverCode(testTitle);
   const barcodeSvg = buildCode39BarcodeSvg(coverCode);
   const coverCodeLabel = formatCoverCodeLabel(coverCode);
@@ -1064,7 +1144,7 @@ function buildStyles(): string {
       position: absolute;
       left: 0.55in;
       right: 0.55in;
-      bottom: 0.18in;
+      bottom: 0.28in;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       align-items: end;
@@ -1290,6 +1370,10 @@ function buildStyles(): string {
       padding-top: 0.02in;
     }
 
+    .verbal-intro-page-with-questions .intro-page-inner {
+      padding-bottom: 0.56in;
+    }
+
     .section-title-wrap {
       margin-left: 1.02in;
     }
@@ -1297,17 +1381,17 @@ function buildStyles(): string {
     .section-title-wrap h1 {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 0.44in;
+      font-size: 0.36in;
       font-weight: 700;
-      line-height: 1.05;
+      line-height: 1.02;
     }
 
     .section-title-meta {
       margin-top: 0.05in;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 0.18in;
+      font-size: 0.165in;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.11em;
       text-transform: uppercase;
     }
 
@@ -1348,8 +1432,8 @@ function buildStyles(): string {
 
     .directions-card p {
       margin-top: 0.12in;
-      font-size: 0.165in;
-      line-height: 1.45;
+      font-size: 0.15in;
+      line-height: 1.36;
     }
 
     .math-directions-card {
@@ -1364,15 +1448,15 @@ function buildStyles(): string {
     .math-notes-copy,
     .math-reference-copy {
       margin-top: 0.1in;
-      font-size: 0.155in;
-      line-height: 1.4;
+      font-size: 0.145in;
+      line-height: 1.34;
     }
 
     .math-note-list {
       margin: 0.08in 0 0;
       padding-left: 0.16in;
-      font-size: 0.155in;
-      line-height: 1.45;
+      font-size: 0.145in;
+      line-height: 1.34;
     }
 
     .math-note-list li {
@@ -1394,8 +1478,8 @@ function buildStyles(): string {
       width: 5.82in;
       margin-left: 1.16in;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 0.16in;
-      line-height: 1.45;
+      font-size: 0.148in;
+      line-height: 1.36;
     }
 
     .math-response-copy p {
@@ -1414,6 +1498,14 @@ function buildStyles(): string {
       padding-top: 0;
     }
 
+    .verbal-intro-question-block {
+      margin-top: 0.35in;
+    }
+
+    .verbal-intro-question-block .question-card {
+      margin-bottom: 0;
+    }
+
     .question-columns {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
@@ -1423,6 +1515,10 @@ function buildStyles(): string {
 
     .question-columns-with-stop {
       min-height: 6.98in;
+    }
+
+    .question-columns.embedded-question-columns {
+      min-height: auto;
     }
 
     .question-column-divider {
@@ -1798,17 +1894,32 @@ export function generatePDFTemplate({
   let pageNumber = 2;
 
   stages.forEach((stage, index) => {
+    const questionPages = buildQuestionPages(stage);
+
     if (stage.section === MATH_SECTION) {
       pages.push(buildMathIntroPage(stage, pageNumber));
       pageNumber += 1;
       pages.push(buildMathResponseInstructionsPage(stage, pageNumber));
       pageNumber += 1;
     } else {
-      pages.push(buildVerbalIntroPage(stage, pageNumber));
+      const [embeddedQuestionPage, ...remainingQuestionPages] = questionPages;
+
+      pages.push(buildVerbalIntroPage(stage, pageNumber, embeddedQuestionPage));
       pageNumber += 1;
+
+      for (const questionPage of remainingQuestionPages) {
+        pages.push(buildQuestionPage(stage, questionPage, pageNumber));
+        pageNumber += 1;
+      }
+
+      const nextStage = stages[index + 1];
+      if (nextStage && stage.section !== nextStage.section) {
+        pages.push(buildNoMaterialPage());
+      }
+
+      return;
     }
 
-    const questionPages = buildQuestionPages(stage);
     for (const questionPage of questionPages) {
       pages.push(buildQuestionPage(stage, questionPage, pageNumber));
       pageNumber += 1;

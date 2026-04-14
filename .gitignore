@@ -19,8 +19,10 @@
 project_details.md
 # production
 /build
+/.open-next/
+/.wrangler/
 
-*.md
+
 # misc
 .DS_Store
 *.pem

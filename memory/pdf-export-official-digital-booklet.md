@@ -1,0 +1,69 @@
+# PDF Export: Official Digital Booklet Track
+
+## Status
+
+- In progress as of 2026-04-14.
+- The client-side PDF export flow still renders through `components/DownloadPdfButton.tsx` and `utils/questionTemplate.ts`.
+- The current goal is not a generic printable worksheet. The export must visually match the official SAT digital practice booklet structure as closely as possible.
+
+## Key implementation decisions
+
+- Keep PDF generation client-side through the hidden print iframe flow. Do not restore the deprecated server-side PDF export route.
+- The canonical template file is `utils/questionTemplate.ts`.
+- Top module banners should use the provided official-style SVG assets from the repo, not local-machine file paths and not long inline base64 strings.
+- Deployment-safe assets now live under `public/pdf-assets/`.
+- Body typography should use Minion Pro from bundled font files under `public/pdf-assets/fonts/` via `@font-face` in the generated template.
+- Math rendering uses KaTeX HTML output with the KaTeX stylesheet linked in the generated HTML; duplicate MathML output was removed.
+
+## Bundled assets
+
+### Banners
+
+- `public/pdf-assets/banners/banner-1-1.svg`
+- `public/pdf-assets/banners/banner-1-2.svg`
+- `public/pdf-assets/banners/banner-2-1.svg`
+- `public/pdf-assets/banners/banner-2-2.svg`
+
+### Fonts
+
+- `public/pdf-assets/fonts/MinionPro-Regular.otf`
+- `public/pdf-assets/fonts/MinionPro-It.otf`
+- `public/pdf-assets/fonts/MinionPro-Bold.otf`
+- `public/pdf-assets/fonts/MinionPro-BoldIt.otf`
+
+## Current template structure
+
+- Official-style cover page
+- Prelude page with `Test begins on the next page.`
+- Reading and Writing module intro pages
+- Math module intro/reference pages
+- Math response-instructions pages
+- Two-column question pages
+- Stop banner on the last page of each module
+- No-material spacer pages where needed
+- Final directions page
+
+## Important debugging history
+
+- The top-banner issue was not just stale caching.
+- Earlier attempts failed because old CSS for `.top-band` still constrained the strip with side margins and conflicting rendering rules.
+- Another failed direction was using inline base64 SVG banners. That made the template harder to maintain and was intentionally abandoned.
+- The repository direction is now to reference the real SVG files from `public/pdf-assets/banners`.
+- If the banner width looks wrong again, inspect both:
+  - `buildTopBand()` markup in `utils/questionTemplate.ts`
+  - the active `.top-band` and `.top-band-image` CSS in the generated template
+- The specific issue to keep watching is whether the banner is being letterboxed, cropped vertically, or constrained by margins instead of actually spanning the intended content width.
+
+## Constraints to preserve
+
+- Do not depend on `/Users/...` local paths for fonts or banner assets.
+- Do not reintroduce a temporary asset API route for local filesystem reads.
+- Keep the export deployable with everything needed living inside the repo.
+
+## Next likely work
+
+- Verbal module intro pages now embed the first question spread directly under the directions block instead of forcing a blank standalone intro page. If that layout regresses, inspect `buildVerbalIntroPage()`, `buildQuestionColumns()`, and the `.verbal-intro-question-block` CSS in `utils/questionTemplate.ts`.
+- Intro-page helper copy for Reading and Writing directions, Math directions/notes/reference text, and Math response-instructions copy was reduced slightly to better match booklet density and preserve vertical room on module helper pages.
+- Finalize the exact top-banner sizing and scaling so it aligns margin-to-margin like the official booklet without vertical truncation.
+- Continue tuning Minion Pro sizing/leading and KaTeX sizing so math questions match official SAT typesetting more closely.
+- Keep question bars, question density, and column spacing aligned with the official digital booklet reference.

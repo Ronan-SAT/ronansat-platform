@@ -1,5 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
-// Cho phép  nhận ảnh từ cloudinary
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 import type { NextConfig } from "next";
 
@@ -12,10 +12,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  serverExternalPackages: ["puppeteer-core", "@sparticuz/chromium"],
 };
 
-export default withSentryConfig(nextConfig, {
+const sentryConfig = withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -36,15 +35,9 @@ export default withSentryConfig(nextConfig, {
   // This can increase your server load as well as your hosting bill.
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
   // side errors will fail.
-  // tunnelRoute: "/monitoring", // Đã tắt để fix lỗi giật lag và lỗi proxy ECONNRESET trên localhost
+  // tunnelRoute: "/monitoring", // Disabled to avoid local proxy ECONNRESET issues.
 
   webpack: {
-    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
-    // https://vercel.com/docs/cron-jobs
-    automaticVercelMonitors: true,
-
     // Tree-shaking options for reducing bundle size
     treeshake: {
       // Automatically tree-shake Sentry logger statements to reduce bundle size
@@ -52,3 +45,7 @@ export default withSentryConfig(nextConfig, {
     },
   },
 });
+
+export default sentryConfig;
+
+initOpenNextCloudflareForDev();

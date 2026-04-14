@@ -20,7 +20,7 @@ const authOptions: NextAuthMiddlewareOptions = {
 };
 
 export default withAuth(
-  function proxy() {
+  function middleware() {
     return;
   },
   authOptions

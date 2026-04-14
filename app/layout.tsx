@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, DM_Sans, Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/react";
 
 import AppShell from "@/components/AppShell";
 import AuthProvider from "@/components/AuthProvider";
@@ -47,7 +46,6 @@ export default function RootLayout({
             <AppShell>{children}</AppShell>
           </VocabBoardProvider>
         </AuthProvider>
-        <Analytics />
       </body>
     </html>
   );

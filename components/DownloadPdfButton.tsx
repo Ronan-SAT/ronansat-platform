@@ -18,16 +18,6 @@ type PdfDataResponse = {
   sectionName?: string;
 };
 
-function buildFileName(testName: string, sectionName?: string) {
-  const joined = [testName, sectionName, "PDF"]
-    .filter(Boolean)
-    .join("_")
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "_");
-
-  return `${joined || "practice_test"}.pdf`;
-}
-
 function buildDocumentTitle(testName: string, sectionName?: string) {
   const suffix = sectionName ? ` - ${sectionName}` : "";
   return `RONAN SAT - ${testName}${suffix}`;
@@ -102,7 +92,6 @@ export default function DownloadPdfButton({
       }
 
       const data = (await response.json()) as PdfDataResponse;
-      const fileName = buildFileName(testName || data.testTitle, sectionName || data.sectionName);
       const documentTitle = buildDocumentTitle(testName || data.testTitle, sectionName || data.sectionName);
       const htmlString = generatePDFTemplate({
         testId: data.testId,
