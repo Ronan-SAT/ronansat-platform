@@ -139,6 +139,10 @@ function hasTallMath(text: string | null | undefined): boolean {
   return TALL_MATH_PATTERN.test(text);
 }
 
+function loosenTallInlineMathText(mathText: string): string {
+  return mathText.replace(/\\frac/g, "\\dfrac");
+}
+
 function parseText(
   text: string | null | undefined,
   options?: {
@@ -164,7 +168,7 @@ function parseText(
         const normalizedMathText = mathText.trim();
         const renderMathText =
           !isDisplayMath && options?.loosenTallInlineMath && hasTallMath(normalizedMathText)
-            ? `\\displaystyle ${normalizedMathText}`
+            ? `\\displaystyle ${loosenTallInlineMathText(normalizedMathText)}`
             : normalizedMathText;
         const renderedMath = katex.renderToString(renderMathText, {
           displayMode: isDisplayMath,
@@ -1533,11 +1537,11 @@ function buildStyles(): string {
     .question-card-body {
       padding-top: 0.08in;
       font-size: 0.132in;
-      line-height: 1.24;
+      line-height: 1.52;
     }
 
     .question-card-body p {
-      margin-bottom: 0.08in;
+      margin-bottom: 0.14in;
     }
 
     .question-card-body p:last-child {
@@ -1597,19 +1601,19 @@ function buildStyles(): string {
     }
 
     .passage-body {
-      margin-bottom: 0.08in;
+      margin-bottom: 0.14in;
     }
 
     .passage-body--tall-math {
-      line-height: 1.9;
+      line-height: 2.25;
     }
 
     .question-text {
-      margin-bottom: 0.08in;
+      margin-bottom: 0.14in;
     }
 
     .question-text--tall-math {
-      line-height: 1.9;
+      line-height: 2.25;
     }
 
     .question-image-wrap {
@@ -1646,7 +1650,7 @@ function buildStyles(): string {
     }
 
     .answer-choice-text--tall-math {
-      line-height: 1.82;
+      line-height: 2.05;
     }
 
     .spr-answer-line {
@@ -1885,14 +1889,14 @@ function buildStyles(): string {
     .question-text--tall-math .katex,
     .passage-body--tall-math .katex,
     .answer-choice-text--tall-math .katex {
-      line-height: 1.68;
+      line-height: 1.95;
     }
 
     .question-text--tall-math .katex .base,
     .passage-body--tall-math .katex .base,
     .answer-choice-text--tall-math .katex .base {
-      padding-top: 0.16em;
-      padding-bottom: 0.24em;
+      padding-top: 0.26em;
+      padding-bottom: 0.36em;
     }
 
     .question-text .katex .mord,
