@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+import type { QuestionExtra } from "@/lib/questionExtra";
 import { normalizeSectionName, VERBAL_SECTION } from "@/lib/sections";
 import { checkIsCorrect } from "@/utils/gradingHelper";
 import { useTimer } from "./useTimer";
@@ -17,6 +18,10 @@ type TestQuestion = {
   correctAnswer?: string;
   questionType?: string;
   sprAnswers?: string[];
+  questionText?: string;
+  passage?: string;
+  choices?: string[];
+  extra?: QuestionExtra | null;
 };
 
 export const testStages = [

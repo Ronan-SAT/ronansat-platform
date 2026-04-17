@@ -1,3 +1,5 @@
+import type { QuestionExtra } from "@/lib/questionExtra";
+
 export type ReviewQuestion = {
   _id: string;
   section?: string;
@@ -11,7 +13,7 @@ export type ReviewQuestion = {
   choices?: string[];
   sprAnswers?: string[];
   passage?: string;
-  imageUrl?: string;
+  extra?: QuestionExtra | null;
 };
 
 export type ReviewAnswer = {

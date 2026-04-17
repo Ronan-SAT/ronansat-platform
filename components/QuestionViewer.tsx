@@ -1,11 +1,12 @@
 "use client";
 
 import { CSSProperties, useMemo, useState } from "react";
-import { CldImage } from "next-cloudinary";
 import Latex from "react-latex-next";
 import { Bookmark } from "lucide-react";
 
+import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
 import SelectableTextPanel, { type TextAnnotation } from "@/components/test/SelectableTextPanel";
+import { hasQuestionExtra, type QuestionExtra } from "@/lib/questionExtra";
 import { getTestingRoomThemePreset, type TestingRoomTheme } from "@/lib/testingRoomTheme";
 import { getChoiceCode } from "@/utils/gradingHelper";
 
@@ -44,7 +45,7 @@ type ViewerQuestion = {
   questionType?: string;
   questionText?: string;
   passage?: string;
-  imageUrl?: string;
+  extra?: QuestionExtra | null;
   choices?: string[];
 };
 
@@ -91,7 +92,8 @@ export default function QuestionViewer({
     });
   };
 
-  const hasLeftPanel = question.passage || question.imageUrl;
+  const hasRenderableExtra = hasQuestionExtra(question.extra);
+  const hasLeftPanel = Boolean(question.passage || hasRenderableExtra);
   const leftPct = `${leftWidth}%`;
   const rightPct = `${100 - leftWidth}%`;
   const splitPanelStyle =
@@ -172,17 +174,14 @@ export default function QuestionViewer({
     >
       {hasLeftPanel ? (
         <div className={`hidden md:block md:h-full md:w-[var(--left-panel-width)] md:shrink-0 md:overflow-y-auto md:p-10 ${viewerTheme.leftPanelClass}`}>
-          {question.imageUrl ? (
-            <div className={`mb-4 flex w-full justify-center p-3 sm:mb-6 sm:p-4 ${viewerTheme.imageCardClass}`}>
-              <CldImage
-                src={question.imageUrl}
-                width={350}
-                height={350}
-                alt="Question Reference"
-                className="h-auto max-w-full object-contain"
+            {hasRenderableExtra ? (
+              <QuestionExtraBlock
+                extra={question.extra}
+                className="mb-4 sm:mb-6"
+                titleClassName={`mb-2 text-center text-[14px] font-normal leading-[1.35] ${readingFontClass} text-ink-fg`}
+                contentClassName={readingFontClass}
               />
-            </div>
-          ) : null}
+            ) : null}
 
           {question.passage ? (
               <SelectableTextPanel
@@ -221,16 +220,13 @@ export default function QuestionViewer({
       >
         {hasLeftPanel ? (
           <div className={`px-4 pt-4 sm:px-6 md:hidden ${viewerTheme.leftPanelClass}`}>
-            {question.imageUrl ? (
-              <div className={`mb-4 flex w-full justify-center p-3 ${viewerTheme.imageCardClass}`}>
-                <CldImage
-                  src={question.imageUrl}
-                  width={350}
-                  height={350}
-                  alt="Question Reference"
-                  className="h-auto max-w-full object-contain"
-                />
-              </div>
+            {hasRenderableExtra ? (
+              <QuestionExtraBlock
+                extra={question.extra}
+                className="mb-4"
+                titleClassName={`mb-2 text-center text-[14px] font-normal leading-[1.35] ${readingFontClass} text-ink-fg`}
+                contentClassName={readingFontClass}
+              />
             ) : null}
 
             {question.passage ? (

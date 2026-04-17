@@ -1,6 +1,7 @@
 import katex from "katex";
 import { marked } from "marked";
 
+import { estimateQuestionExtraUnits, getQuestionExtraSvgMarkup, parseQuestionExtraTable, type QuestionExtra } from "@/lib/questionExtra";
 import { isVerbalSection, MATH_SECTION, VERBAL_SECTION } from "@/lib/sections";
 
 type RawQuestion = {
@@ -13,7 +14,7 @@ type RawQuestion = {
   choices?: string[];
   correctAnswer?: string;
   sprAnswers?: string[];
-  imageUrl?: string;
+  extra?: QuestionExtra | null;
   [key: string]: unknown;
 };
 
@@ -249,10 +250,6 @@ function escapeHtml(value: string): string {
     .replace(/\"/g, "&quot;");
 }
 
-function escapeAttribute(value: string): string {
-  return escapeHtml(value);
-}
-
 function stripWhitespace(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -277,30 +274,50 @@ function normalizeChoices(question: RawQuestion): string[] {
     );
 }
 
-function resolveImageUrl(imageUrl?: string): string | null {
-  if (!imageUrl) {
-    return null;
+function buildQuestionExtraHtml(extra: QuestionExtra | null | undefined): string {
+  const table = parseQuestionExtraTable(extra);
+  if (table) {
+    const titleHtml = table.title
+      ? `<div class="question-extra-title">${escapeHtml(table.title)}</div>`
+      : "";
+    const headerHtml = table.headers
+      .map((header) => `<th>${escapeHtml(header)}</th>`)
+      .join("");
+    const rowsHtml = table.rows
+      .map(
+        (row) => `
+          <tr>
+            ${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}
+          </tr>
+        `,
+      )
+      .join("");
+
+    return `
+      <div class="question-extra-wrap question-extra-wrap--table">
+        ${titleHtml}
+        <table>
+          <thead>
+            <tr>${headerHtml}</tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
-  const trimmed = imageUrl.trim();
-  if (!trimmed || trimmed.toLowerCase() === "cần thêm ảnh") {
-    return null;
+  const svgMarkup = getQuestionExtraSvgMarkup(extra);
+  if (!svgMarkup) {
+    return "";
   }
 
-  if (
-    /^(https?:)?\/\//i.test(trimmed) ||
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("/")
-  ) {
-    return trimmed;
-  }
-
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  if (!cloudName) {
-    return null;
-  }
-
-  return `https://res.cloudinary.com/${cloudName}/image/upload/${encodeURI(trimmed)}`;
+  return `
+    <div class="question-extra-wrap question-extra-wrap--figure">
+      ${svgMarkup}
+    </div>
+  `;
 }
 
 function getNormalizedSectionLabel(section: string | undefined): string {
@@ -457,7 +474,6 @@ function estimateQuestionUnits(
 ): number {
   const choices = normalizeChoices(item.question);
   const hasTallChoice = choices.some((choice) => hasTallMath(choice));
-  const hasImage = Boolean(resolveImageUrl(item.question.imageUrl));
   const baseUnits = section === MATH_SECTION ? 7 : 8;
 
   let units = baseUnits;
@@ -475,7 +491,7 @@ function estimateQuestionUnits(
       ? 3
       : Math.max(3, Math.ceil(choices.join(" ").length / 120));
   units += hasTallChoice ? choices.length + 1 : 0;
-  units += hasImage ? 8 : 0;
+  units += estimateQuestionExtraUnits(item.question.extra);
 
   return units;
 }
@@ -668,7 +684,6 @@ function buildPageFooter(pageNumber: number, continueLabel?: string): string {
 }
 
 function buildQuestionCard(item: QuestionRenderItem): string {
-  const imageUrl = resolveImageUrl(item.question.imageUrl);
   const choices = normalizeChoices(item.question);
   const choiceListHasTallMath = choices.some((choice) => hasTallMath(choice));
   const labels = ["A", "B", "C", "D", "E", "F"];
@@ -683,13 +698,7 @@ function buildQuestionCard(item: QuestionRenderItem): string {
       ? `<div class="passage-reference">${escapeHtml(item.passageReference)}</div>`
       : "";
 
-  const imageHtml = imageUrl
-    ? `
-        <div class="question-image-wrap">
-          <img src="${escapeAttribute(imageUrl)}" alt="Question illustration" class="question-image" />
-        </div>
-      `
-    : "";
+  const extraHtml = buildQuestionExtraHtml(item.question.extra);
 
   const promptHtml = item.question.questionText
     ? `<div class="question-text${promptHasTallMath ? " question-text--tall-math" : ""}">${parseText(item.question.questionText, { promoteStandaloneMath: true, loosenTallInlineMath: true })}</div>`
@@ -717,7 +726,7 @@ function buildQuestionCard(item: QuestionRenderItem): string {
       <div class="question-bar"><span><span class="question-bar-number-text">${item.number}</span></span></div>
       <div class="question-card-body">
         ${passageHtml}
-        ${imageHtml}
+        ${extraHtml}
         ${promptHtml}
         ${answerHtml}
       </div>
@@ -1733,15 +1742,31 @@ function buildStyles(): string {
       line-height: 2.25;
     }
 
-    .question-image-wrap {
+    .question-extra-wrap {
       margin: 0.06in 0 0.12in;
+    }
+
+    .question-extra-wrap--table {
       text-align: center;
     }
 
-    .question-image {
+    .question-extra-wrap--figure {
+      text-align: center;
+    }
+
+    .question-extra-wrap--figure svg {
       max-width: 100%;
+      width: 100%;
+      height: auto;
       max-height: 2.8in;
-      object-fit: contain;
+    }
+
+    .question-extra-title {
+      margin: 0 0 0.055in;
+      font-size: 0.132in;
+      font-weight: 400;
+      line-height: 1.3;
+      text-align: center;
     }
 
     .answer-choice-list {
@@ -1796,22 +1821,30 @@ function buildStyles(): string {
     }
 
     .question-card table {
-      width: 100%;
-      margin: 0.08in 0 0.12in;
+      display: inline-table;
+      width: auto;
+      max-width: 100%;
+      margin: 0.05in auto 0.1in;
       border-collapse: collapse;
-      font-size: 0.124in;
+      table-layout: auto;
+      font-size: 0.132in;
+      line-height: 1.22;
+      text-align: left;
     }
 
     .question-card th,
     .question-card td {
       border: 1px solid #777777;
-      padding: 0.04in 0.05in;
+      padding: 0.032in 0.045in;
       vertical-align: top;
+      font-size: 0.132in;
+      font-weight: 400;
+      line-height: 1.22;
+      white-space: normal;
     }
 
     .question-card th {
-      font-family: Arial, Helvetica, sans-serif;
-      font-weight: 700;
+      font-weight: 600;
     }
 
     .question-card img {

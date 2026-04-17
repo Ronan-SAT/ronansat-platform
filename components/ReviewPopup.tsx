@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { AlertCircle, BookOpen, Calculator, ChevronDown, ChevronUp, Sparkles, X } from "lucide-react";
 import Latex from "react-latex-next";
 import "katex/dist/katex.min.css";
 
 import DesmosCalculator from "@/components/DesmosCalculator";
+import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
 import ReviewChatbot from "@/components/ReviewChatbot";
 import { ReportErrorButton } from "@/components/report/ReportErrorButton";
 import PassageColumn from "@/components/review/PassageCollumn";
@@ -142,10 +142,12 @@ export default function ReviewPopup({
 
           <div className={`${q.passage ? "w-1/2" : "mx-auto w-full max-w-4xl"} h-full overflow-y-auto bg-paper-bg`}>
             <div className="flex flex-col gap-5 p-6 lg:p-8">
-              {!q.passage && q.imageUrl ? (
-                <div className="flex justify-center rounded-2xl border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm">
-                  <Image src={q.imageUrl} alt="Reference" width={1200} height={800} unoptimized className="max-h-[320px] max-w-full rounded-lg object-contain" />
-                </div>
+              {!q.passage ? (
+                <QuestionExtraBlock
+                  extra={q.extra}
+                  className="rounded-2xl border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm"
+                  titleClassName="mb-2 text-center text-[16px] font-normal leading-[1.35] text-ink-fg font-[Georgia,serif]"
+                />
               ) : null}
 
               <div className="workbook-panel overflow-hidden">

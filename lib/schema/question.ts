@@ -1,28 +1,31 @@
-// schema trong models/Questions.ts là bảo vệ ở sâu trong DB
-// schema ở file này kiểm tra ngay trong API
+// The model schema protects data at the database layer.
+// The schema in this file validates data at the API boundary.
 
-import { z } from "zod";  // Thư viện kiểm tra format rất kỹ càng
+import { z } from "zod";
 
-export const QuestionValidationSchema = z.object({            // Tạo bộ luật kiểm tra 1 object
-    testId: z.string().min(1, "Test ID is required"),                            // Yêu cầu phải có id dạng string, min 1 ký tự, không có thì báo lỗi trong ""
+const QuestionExtraSchema = z.object({
+  type: z.enum(["table", "figure_math", "figure_chart", "figure_other"]),
+  content: z.unknown(),
+});
+
+export const QuestionValidationSchema = z.object({
+    testId: z.string().min(1, "Test ID is required"),
     section: z.string().min(1, "Section is required"),
     domain: z.string().optional(),
     skill: z.string().optional(),
-    module: z.number().min(1).default(1),              // module 1 2
-    questionType: z.enum(["multiple_choice", "spr"]).default("multiple_choice"), // THÊM MỚI: Cho phép điền trắc nghiệm hoặc tự luận
+    module: z.number().min(1).default(1),
+    questionType: z.enum(["multiple_choice", "spr"]).default("multiple_choice"),
     questionText: z.string().min(1, "Question text is required"),
     passage: z.string().optional(),
-    choices: z.array(z.string()).optional(),                     // SỬA: Đã xóa .min(2) để cho phép không có lựa chọn (khi làm câu tự luận)
-    correctAnswer: z.string().optional(),                        // SỬA: Đã xóa .min(1) để cho phép đáp án rỗng (khi làm câu tự luận)
-    sprAnswers: z.array(z.string()).optional(),                  // THÊM MỚI: Mảng chứa các câu trả lời tự luận
+    choices: z.array(z.string()).optional(),
+    correctAnswer: z.string().optional(),
+    sprAnswers: z.array(z.string()).optional(),
     explanation: z.string().min(1, "Explanation is required"),
-    difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),   // Ép phải là 1 trong 3 chữ này, enum là liệt kê, mặc định là medium
-    points: z.number().min(0).default(10),     // Trọng số của câu thấp nhất là 0 và mặc định là 10
+    difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
+    points: z.number().min(0).default(10),
     imageUrl: z.string().optional(),
+    extra: QuestionExtraSchema.optional(),
 });
 
-
-// Bình thường cần viết interface rồi mới viết schema, Zod có công cụ z.infer suy luận từ schema QuestionValidationSchema và tự tạo ra interface tên là QuestionInput
-// type hoạt động y hệt interface, interface cứng nhắc nên không thể gán 1 interface = cái gì được => k thể dùng z.infer
-// type thì linh hoạt hơn, cả 2 đều là bản công thức giúp user tránh viết code sai
+// `z.infer` keeps the runtime schema and the TypeScript input type aligned.
 export type QuestionInput = z.infer<typeof QuestionValidationSchema>;

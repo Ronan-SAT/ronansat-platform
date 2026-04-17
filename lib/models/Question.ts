@@ -1,52 +1,64 @@
-// Khuôn cho 1 câu hỏi trong cơ sở dữ liệu
+// Shape for a question document in the database.
 
-    import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
-    /*
-    Interface là công thức của 1 loại data giúp dev truyền đúng loại thông tin khi làm code, giống bản công thức khi làm bánh, khi npm run dev thì interface biến mất
-    Schema là Bộ luật giúp cơ sở dữ liệu kiểm tra data có đúng định dạng khi lưu vào DB hay không, nó chỉ là bộ luật chứ ch thể kiểm tra
-    Model là Người thực hiện việc cầm bộ luật đi kiểm tra data
-    */
+import type { QuestionExtra } from "@/lib/questionExtra";
 
-    export interface IQuestion extends Document {
-        testId: mongoose.Types.ObjectId;    // Mã mà câu này thuộc về
-        section: string;                    
-        domain?: string;
-        skill?: string;
-        module: number;                     // 1 2   - module 1 or 2
-        questionType: "multiple_choice" | "spr"; // THÊM MỚI: Định dạng câu hỏi là Trắc nghiệm hay Tự luận
-        questionText: string;               // Câu hỏi (Main purpose, ...)
-        passage?: string;                   // Passage là đoạn văn rất dài trong Verbal, Math thì k cần cái này mà chỉ cần questionText thôi, ? là optional
-        choices?: string[];                 // SỬA: Cho phép optional (tự luận không cần)
-        correctAnswer?: string;             // SỬA: Cho phép optional (tự luận không cần)
-        sprAnswers?: string[];              // THÊM MỚI: Mảng chứa tối đa 3 cách điền đáp án tự luận
-        explanation: string;
-        difficulty: "easy" | "medium" | "hard";      // difficulty là 1 trong 3 string này
-        points: number;                     // Trọng số
-        imageUrl?: string;
-    }
+/*
+The interface describes the TypeScript shape used by the app.
+The schema defines the persisted MongoDB structure.
+The model applies that schema for reads and writes.
+*/
 
-    const QuestionSchema: Schema<IQuestion> = new Schema(
-        {
-            testId: { type: Schema.Types.ObjectId, ref: "Test", required: true, index: true },
-            section: { type: String, required: true },
-            domain: { type: String, required: false },
-            skill: { type: String, required: false },
-            module: { type: Number, required: true },
-            questionType: { type: String, enum: ["multiple_choice", "spr"], default: "multiple_choice" }, // THÊM MỚI
-            questionText: { type: String, required: true },
-            passage: { type: String, required: false },             // k required vì nó là optional
-            choices: [{ type: String, required: false }],           // SỬA: Chuyển thành false để câu tự luận không bị block
-            correctAnswer: { type: String, required: false },       // SỬA: Chuyển thành false
-            sprAnswers: [{ type: String, required: false }],        // THÊM MỚI
-            explanation: { type: String, required: true },
-            difficulty: { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
-            points: { type: Number, default: 10 },
-            imageUrl: { type: String },
-        },
-        { timestamps: true }   // lấy hàm updated và created của MongoDB
-    );
+export interface IQuestion extends Document {
+  testId: mongoose.Types.ObjectId;
+  section: string;
+  domain?: string;
+  skill?: string;
+  module: number;
+  questionType: "multiple_choice" | "spr";
+  questionText: string;
+  passage?: string;
+  choices?: string[];
+  correctAnswer?: string;
+  sprAnswers?: string[];
+  explanation: string;
+  difficulty: "easy" | "medium" | "hard";
+  points: number;
+  imageUrl?: string;
+  extra?: QuestionExtra | null;
+}
 
-    // Kiểm tra xem đã có model nào tên là Question chưa, chưa mới tạo -> Tránh trùng lặp
-    const Question: Model<IQuestion> = mongoose.models.Question || mongoose.model<IQuestion>("Question", QuestionSchema);
-    export default Question;
+const QuestionExtraSchema = new Schema(
+  {
+    type: { type: String, enum: ["table", "figure_math", "figure_chart", "figure_other"], required: true },
+    content: { type: Schema.Types.Mixed, required: true },
+  },
+  { _id: false },
+);
+
+const QuestionSchema: Schema<IQuestion> = new Schema(
+  {
+    testId: { type: Schema.Types.ObjectId, ref: "Test", required: true, index: true },
+    section: { type: String, required: true },
+    domain: { type: String, required: false },
+    skill: { type: String, required: false },
+    module: { type: Number, required: true },
+    questionType: { type: String, enum: ["multiple_choice", "spr"], default: "multiple_choice" },
+    questionText: { type: String, required: true },
+    passage: { type: String, required: false },
+    choices: [{ type: String, required: false }],
+    correctAnswer: { type: String, required: false },
+    sprAnswers: [{ type: String, required: false }],
+    explanation: { type: String, required: true },
+    difficulty: { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+    points: { type: Number, default: 10 },
+    imageUrl: { type: String },
+    extra: { type: QuestionExtraSchema, required: false },
+  },
+  { timestamps: true },
+);
+
+// Reuse the existing model during hot reloads.
+const Question: Model<IQuestion> = mongoose.models.Question || mongoose.model<IQuestion>("Question", QuestionSchema);
+export default Question;

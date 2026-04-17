@@ -257,7 +257,7 @@ export const resultService = {
       .populate({
         path: "answers.questionId",
         model: "Question",
-        select: "questionText correctAnswer _id imageUrl choices passage domain skill questionType sprAnswers section module",
+        select: "questionText correctAnswer _id choices passage domain skill questionType sprAnswers section module extra",
       });
 
     return { results };
