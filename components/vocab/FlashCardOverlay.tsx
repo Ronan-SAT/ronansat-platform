@@ -104,7 +104,7 @@ export function FlashCardOverlay({
       <div className="relative mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-5xl flex-col pb-28">
       <div className="flex w-full items-start justify-between gap-4 rounded-[28px] border-4 border-ink-fg bg-surface-white px-5 py-4 brutal-shadow lg:px-6">
         <div>
-          <div className="workbook-sticker bg-accent-1 text-ink-fg">Revision Mode</div>
+          <div className="workbook-sticker bg-accent-1 text-ink-fg">Flashcard</div>
           <div className="mt-3 text-[12px] font-semibold uppercase tracking-[0.16em] text-ink-fg/70">{title}</div>
           <div className="mt-1 text-[20px] font-black tracking-[-0.03em] text-ink-fg">
             Card {currentIndex + 1} / {total}

@@ -56,7 +56,7 @@ export function EditableVocabCard({
             type="button"
             onClick={onRemove}
             title="Mark as complete"
-            className="rounded-full border-2 border-ink-fg bg-paper-bg p-0.5 text-ink-fg"
+            className="rounded-full border-2 border-ink-fg bg-paper-bg p-0.5 text-ink-fg opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
           >
             <CheckCircle2 className="h-5.5 w-5.5" />
           </button>

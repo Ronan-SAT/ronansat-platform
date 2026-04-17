@@ -294,7 +294,7 @@ export function useVocabPageController() {
       });
 
       const payload = (await response.json()) as { definition?: string; audioUrl?: string; error?: string };
-      if (!response.ok || (!payload.definition && !payload.audioUrl)) {
+      if (!response.ok || !payload.definition) {
         throw new Error(payload.error || "Definition not found");
       }
 
@@ -315,15 +315,16 @@ export function useVocabPageController() {
         ...previous,
         [cardId]: {
           status: "success",
-          message: payload.definition && !preservedDefinition ? "Definition added." : "Audio added.",
+          message: payload.definition && payload.audioUrl ? "Definition and audio added." : payload.definition ? "Definition added." : "Audio added.",
         },
       }));
-      if (payload.definition && !preservedDefinition) {
+      if (payload.definition) {
+        const toastTitle = payload.audioUrl ? "Definition and audio added." : "Definition added.";
         toast.success(
           createElement(
             "div",
             { className: "min-w-0" },
-            createElement("div", { className: "text-[13px] font-black" }, `Definition added for ${normalizedTerm}.`),
+            createElement("div", { className: "text-[13px] font-black" }, toastTitle),
             createElement(
               "div",
               {
