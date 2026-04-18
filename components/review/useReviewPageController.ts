@@ -80,8 +80,6 @@ export function useReviewPageController() {
         initialResultsCacheRef.current = cachedResults;
         setResults(cachedResults);
         setLoading(false);
-        setRefreshing(false);
-        return;
       }
 
       if (initialResultsCacheRef.current.length > 0) {

@@ -42,6 +42,7 @@ function clearDashboardCaches() {
     "api:dashboard:results:30",
     "api:dashboard:results:all",
     "api:dashboard:leaderboard",
+    "review:results",
   ];
 
   cacheKeys.forEach((key) => deleteClientCache(key));

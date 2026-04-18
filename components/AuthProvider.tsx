@@ -39,7 +39,7 @@ export default function AuthProvider({
   session,
 }: {
   children: React.ReactNode;
-  session?: Session | null;
+  session: Session | null;
 }) {
   return (
     <SessionProvider session={session}>

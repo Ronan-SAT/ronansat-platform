@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getServerSession } from "next-auth";
 import { Bricolage_Grotesque, DM_Sans, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 
@@ -9,6 +10,7 @@ import AuthProvider from "@/components/AuthProvider";
 import PostHogProvider from "@/components/PostHogProvider";
 import { WorkbookToaster } from "@/components/ui/WorkbookToaster";
 import { VocabBoardProvider } from "@/components/vocab/VocabBoardProvider";
+import { authOptions } from "@/lib/authOptions";
 import { INITIAL_TAB_BOOT_PENDING_KEY, INITIAL_TAB_LOAD_SEEN_KEY } from "@/lib/initialTabLoad";
 import "./globals.css";
 
@@ -39,11 +41,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await getServerSession(authOptions);
+
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}>
@@ -58,7 +62,7 @@ export default function RootLayout({
   // Ignore storage initialization failures.
 }`}
         </Script>
-        <AuthProvider>
+        <AuthProvider session={session}>
           <PostHogProvider>
             <VocabBoardProvider>
               <AppStartupPreloader />

@@ -34,12 +34,12 @@ export async function POST() {
   return NextResponse.json(
     {
       message: "Welcome onboarding reset.",
-        user: {
-          username: user.username,
-          birthDate: user.birthDate,
-          hasCompletedProfile: hasCompletedProfile(user),
-        },
+      user: {
+        username: user.username,
+        birthDate: user.birthDate,
+        hasCompletedProfile: hasCompletedProfile(user),
       },
+    },
     { status: 200 }
   );
 }

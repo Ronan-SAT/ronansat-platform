@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { CheckCircle2, Cake, LoaderCircle, UserRound } from "lucide-react";
 
 import InitialTabBootReady from "@/components/InitialTabBootReady";
-import Loading from "@/components/Loading";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 import { getPostAuthRedirectPath } from "@/lib/getPostAuthRedirectPath";
@@ -110,12 +109,8 @@ export default function WelcomePage() {
     };
   }, [normalizedUsername, status]);
 
-  if (status === "loading") {
-    return <Loading showQuote={false} />;
-  }
-
-  if (status === "unauthenticated" || !session?.user) {
-    return <Loading showQuote={false} />;
+  if (status !== "authenticated" || !session?.user) {
+    return null;
   }
 
   const birthDateIsValid = isValidBirthDate(birthDate);
