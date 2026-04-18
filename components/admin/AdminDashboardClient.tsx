@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import Loading from "@/components/Loading";
 import CreateQuestionForm from "@/components/admin/CreateQuestionForm";
 import CreateStudentForm from "@/components/admin/CreateStudentForm";
@@ -64,6 +65,7 @@ export default function AdminDashboardClient() {
 
   return (
     <div className="min-h-screen bg-paper-bg p-8 pb-24">
+      <InitialTabBootReady />
       <div className="mx-auto max-w-5xl space-y-8">
         <section className="workbook-panel-muted overflow-hidden">
           <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import { CheckCircle, Lock, MonitorPlay, TriangleAlert, User } from "lucide-react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import Loading from "@/components/Loading";
 import { useTestingRoomTheme } from "@/hooks/useTestingRoomTheme";
 import api from "@/lib/axios";
@@ -89,6 +90,7 @@ export default function SettingsPage() {
 
     return (
         <div className="min-h-screen bg-paper-bg p-8 pb-24 duration-200">
+            <InitialTabBootReady />
             <div className="max-w-4xl mx-auto space-y-8">
                 <section className="workbook-panel-muted overflow-hidden">
                     <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">

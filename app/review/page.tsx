@@ -2,6 +2,8 @@
 
 import { Suspense } from "react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
+import Loading from "@/components/Loading";
 import ReviewPageSkeleton from "@/components/ReviewPageSkeleton";
 import ReviewPopup from "@/components/ReviewPopup";
 import { ReviewReport } from "@/components/review/ReviewReport";
@@ -27,11 +29,12 @@ function ReviewContent() {
   } = useReviewPageController();
 
   if ((loading && filteredResults.length === 0) || (status === "loading" && filteredResults.length === 0)) {
-    return <ReviewPageSkeleton />;
+    return <Loading showQuote={false} />;
   }
 
   return (
     <div className="min-h-screen bg-paper-bg lg:flex">
+      <InitialTabBootReady />
       <ReviewResultsSidebar
         refreshing={refreshing}
         testType={testType}

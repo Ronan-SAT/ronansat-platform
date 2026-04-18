@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { useSession } from "next-auth/react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import AuthWorkbookShell from "@/components/auth/AuthWorkbookShell";
 import Loading from "@/components/Loading";
 
@@ -80,6 +81,7 @@ function ResetPasswordForm() {
       backHref="/auth/forgot-password"
       backLabel="Back to code request"
     >
+      <InitialTabBootReady />
       {message ? (
         <div
           className={`mb-5 rounded-2xl border-2 border-ink-fg px-4 py-3 text-sm font-medium leading-6 ${

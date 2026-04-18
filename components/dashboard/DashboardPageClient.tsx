@@ -4,19 +4,23 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import LeaderboardTable from "@/components/dashboard/LeaderboardTable";
-import LeaderboardTableSkeleton from "@/components/dashboard/LeaderboardTableSkeleton";
 import ImprovementTrendPanel from "@/components/dashboard/ImprovementTrendPanel";
 import RecentResultsList from "@/components/dashboard/RecentResultsList";
 import UserStatsPanel from "@/components/dashboard/UserStatsPanel";
-import UserStatsPanelSkeleton from "@/components/dashboard/UserStatsPanelSkeleton";
+import Loading from "@/components/Loading";
 import { fetchDashboardUserResults, fetchDashboardUserStats, fetchLeaderboard } from "@/lib/services/dashboardService";
 import { getClientCache, setClientCache } from "@/lib/clientCache";
+import { preloadInitialAppData } from "@/lib/startupPreload";
 import type { LeaderboardEntry, UserResultSummary, UserStatsSummary } from "@/types/testLibrary";
 
 const CACHE_STATS = "dashboard:stats";
 const CACHE_RESULTS = "dashboard:results:30";
 const CACHE_LEADERBOARD = "dashboard:leaderboard";
+const API_CACHE_STATS = "api:dashboard:stats";
+const API_CACHE_RESULTS = "api:dashboard:results:30";
+const API_CACHE_LEADERBOARD = "api:dashboard:leaderboard";
 
 export default function DashboardPageClient() {
   const router = useRouter();
@@ -52,12 +56,26 @@ export default function DashboardPageClient() {
     const loadDashboard = async () => {
       setLoading(true);
 
-      const cachedStats = getClientCache<UserStatsSummary>(CACHE_STATS);
-      const cachedResults = getClientCache<UserResultSummary[]>(CACHE_RESULTS);
-      const cachedLeaderboard = getClientCache<LeaderboardEntry[]>(CACHE_LEADERBOARD);
+      await preloadInitialAppData({
+        role: session.user.role,
+        userId: session.user.id,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      const cachedStats = getClientCache<UserStatsSummary>(CACHE_STATS) ?? getClientCache<UserStatsSummary>(API_CACHE_STATS);
+      const cachedResults =
+        getClientCache<UserResultSummary[]>(CACHE_RESULTS) ?? getClientCache<UserResultSummary[]>(API_CACHE_RESULTS);
+      const cachedLeaderboard =
+        getClientCache<LeaderboardEntry[]>(CACHE_LEADERBOARD) ?? getClientCache<LeaderboardEntry[]>(API_CACHE_LEADERBOARD);
 
       if (cachedStats !== undefined && cachedResults !== undefined && cachedLeaderboard !== undefined) {
         if (!cancelled) {
+          setClientCache(CACHE_STATS, cachedStats);
+          setClientCache(CACHE_RESULTS, cachedResults);
+          setClientCache(CACHE_LEADERBOARD, cachedLeaderboard);
           setUserStats(cachedStats);
           setUserResults(cachedResults);
           setLeaderboard(cachedLeaderboard);
@@ -102,8 +120,8 @@ export default function DashboardPageClient() {
     };
   }, [router, session?.user?.hasCompletedProfile, session?.user?.role, status]);
 
-  if (status === "loading") {
-    return <DashboardLoadingState />;
+  if (status === "loading" || loading) {
+    return <Loading showQuote={false} />;
   }
 
   if (status === "unauthenticated") {
@@ -120,6 +138,7 @@ export default function DashboardPageClient() {
 
   return (
     <div className="min-h-screen bg-paper-bg pb-12">
+      <InitialTabBootReady />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <section className="workbook-panel-muted mb-6 overflow-hidden">
           <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">
@@ -134,37 +153,12 @@ export default function DashboardPageClient() {
         </section>
 
         <div className="space-y-8">
-          {loading ? <UserStatsPanelSkeleton /> : <UserStatsPanel userStats={userStats} userResults={userResults} />}
+          <UserStatsPanel userStats={userStats} userResults={userResults} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
-            {loading ? <div className="workbook-panel h-[32rem] animate-pulse bg-surface-white" /> : <ImprovementTrendPanel results={userResults} />}
+            <ImprovementTrendPanel results={userResults} />
             <RecentResultsList results={userResults} />
           </div>
-          {loading ? <LeaderboardTableSkeleton /> : <LeaderboardTable leaderboard={leaderboard} />}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-function DashboardLoadingState() {
-  return (
-    <div className="min-h-screen bg-paper-bg pb-12">
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <section className="workbook-panel-muted mb-6 overflow-hidden">
-          <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">
-            <div className="workbook-sticker bg-primary text-ink-fg">Student Dashboard</div>
-            <div className="mt-4 h-12 w-4/5 animate-pulse rounded-md bg-slate-200" />
-            <div className="mt-3 h-6 w-3/5 animate-pulse rounded-md bg-slate-100" />
-          </div>
-        </section>
-
-        <div className="space-y-8">
-          <UserStatsPanelSkeleton />
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
-            <div className="workbook-panel h-[32rem] animate-pulse bg-surface-white" />
-            <div className="workbook-panel h-96 animate-pulse bg-surface-white" />
-          </div>
-          <LeaderboardTableSkeleton />
+          <LeaderboardTable leaderboard={leaderboard} />
         </div>
       </main>
     </div>

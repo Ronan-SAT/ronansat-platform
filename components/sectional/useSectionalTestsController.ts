@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 
 import { getClientCache, setClientCache } from "@/lib/clientCache";
 import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
+import { preloadInitialAppData } from "@/lib/startupPreload";
 import {
   fetchTestsPage,
   getTestsClientCacheKey,
@@ -14,6 +15,7 @@ import type { CachedTestsPayload, SortOption, TestListItem, UserResultSummary } 
 export function useSectionalTestsController() {
   const { data: session, status } = useSession();
   const pageSize = 15;
+  const CACHE_USER_RESULTS = "dashboard:user-results";
   const initialTestsCacheRef = useRef<CachedTestsPayload | undefined>(undefined);
   const [hasHydratedClientCache, setHasHydratedClientCache] = useState(false);
   const [tests, setTests] = useState<TestListItem[]>([]);
@@ -58,16 +60,48 @@ export function useSectionalTestsController() {
       return;
     }
 
+    let cancelled = false;
+
     const loadUserResults = async () => {
+      await preloadInitialAppData({
+        role: session.user.role,
+        userId: session.user.id,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      const cachedResults = getClientCache<UserResultSummary[]>(CACHE_USER_RESULTS);
+
+      if (cachedResults !== undefined) {
+        if (!cancelled) {
+          setUserResults(cachedResults);
+        }
+        return;
+      }
+
       try {
         const nextResults = await fetchDashboardUserResults();
+
+        if (cancelled) {
+          return;
+        }
+
+        setClientCache(CACHE_USER_RESULTS, nextResults);
         setUserResults(nextResults);
       } catch (error) {
-        console.error("Failed to load results", error);
+        if (!cancelled) {
+          console.error("Failed to load results", error);
+        }
       }
     };
 
     void loadUserResults();
+
+    return () => {
+      cancelled = true;
+    };
   }, [session]);
 
   useEffect(() => {
@@ -84,6 +118,17 @@ export function useSectionalTestsController() {
     let cancelled = false;
 
     const loadTests = async () => {
+      if (session?.user?.id) {
+        await preloadInitialAppData({
+          role: session.user.role,
+          userId: session.user.id,
+        });
+
+        if (cancelled) {
+          return;
+        }
+      }
+
       const filters = {
         selectedPeriod,
         subject: moduleFilter,
@@ -128,7 +173,7 @@ export function useSectionalTestsController() {
     return () => {
       cancelled = true;
     };
-  }, [hasHydratedClientCache, page, pageSize, selectedPeriod, sortOption, moduleFilter]);
+  }, [hasHydratedClientCache, moduleFilter, page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption]);
 
   return {
     status,

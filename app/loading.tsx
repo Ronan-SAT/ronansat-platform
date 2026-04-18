@@ -1,5 +1,5 @@
-import AppMinimalLoading from "@/components/AppMinimalLoading";
+import AppRouteLoading from "@/components/AppRouteLoading";
 
 export default function AppLoading() {
-  return <AppMinimalLoading />;
+  return <AppRouteLoading />;
 }

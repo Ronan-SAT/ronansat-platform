@@ -225,6 +225,13 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 - The feature scope includes per-card practice access, collection-level flashcard practice, and a free dictionary lookup action that can prefill a card definition for later editing.
 - Backward compatibility matters here because persisted boards already exist, so normalization should upgrade legacy `word: meaning` text cards into the new structured shape instead of dropping user data.
 
+### 2026-04-18 Startup Data Warmup
+
+- The root layout now mounts a hidden startup preloader that begins warming authenticated app data as soon as profile-gated routes open.
+- The preload pass fills the same session-storage keys already used by the student dashboard, full-length library, sectional library, review flow, and parent dashboard so those screens can render from warm cache immediately after the initial loading phase.
+- The sectional controller now reuses the shared cached result history instead of always doing a fresh `/api/results` fetch on first open.
+- The parent dashboard now shares a dedicated `parent:dashboard` cache entry and also reuses the warmed leaderboard cache instead of always cold-loading both panels.
+
 ### 2026-04-14 Dracula Testing Room Theme
 
 - `lib/testingRoomTheme.ts` now includes a third `dracula` preset with a dark graphite shell, crimson accents, and shared styling tokens for the test shell, header, footer, viewer, Desmos overlay, and settings preview card.

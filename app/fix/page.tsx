@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import Loading from "@/components/Loading";
 import { FixBoardProvider } from "@/components/fix/FixBoardProvider";
 import { FixColumn } from "@/components/fix/FixColumn";
@@ -160,6 +161,7 @@ export default function FixPage() {
 
   return (
     <FixBoardProvider>
+      <InitialTabBootReady />
       <FixBoardScreen />
     </FixBoardProvider>
   );

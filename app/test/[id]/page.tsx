@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Script from "next/script";
 
 import TestEngine from "@/components/TestEngine";
-import TestEntryLoading from "@/components/test/TestEntryLoading";
+import SimpleLoading from "@/components/SimpleLoading";
 
 export default async function TestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,7 +14,7 @@ export default async function TestPage({ params }: { params: Promise<{ id: strin
         strategy="lazyOnload"
       />
       <div className="fixed right-4 top-4 z-[100]" />
-      <Suspense fallback={<TestEntryLoading />}>
+      <Suspense fallback={<SimpleLoading />}>
         <TestEngine testId={id} />
       </Suspense>
     </>

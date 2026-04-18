@@ -3,8 +3,9 @@
 import { useState } from "react";
 
 import DesmosCalculator from "@/components/DesmosCalculator";
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import QuestionViewer from "@/components/QuestionViewer";
-import TestEntryLoading from "@/components/test/TestEntryLoading";
+import SimpleLoading from "@/components/SimpleLoading";
 import TestFooter from "@/components/test/TestFooter";
 import TestHeader from "@/components/test/TestHeader";
 import TestReviewPage from "@/components/test/TestReviewPage";
@@ -47,7 +48,7 @@ export default function TestEngine({ testId }: { testId: string }) {
   const { leftWidth, isDragging, containerRef, handleDividerMouseDown } = useResizableDivider(50);
 
   if (loading) {
-    return <TestEntryLoading />;
+    return <SimpleLoading />;
   }
 
   if (questions.length === 0) {
@@ -84,6 +85,7 @@ export default function TestEngine({ testId }: { testId: string }) {
     <div
       className={`relative flex min-h-screen flex-col overflow-hidden ${themePreset.shell.rootClass}`}
     >
+      <InitialTabBootReady />
       <TestHeader
         theme={testingRoomTheme}
         sectionName={`${currentStage.section} - Module ${currentStage.module}`}

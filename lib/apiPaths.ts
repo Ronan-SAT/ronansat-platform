@@ -11,6 +11,7 @@ export const API_PATHS = {
     USER_USERNAME: "/api/user/username",
     DEV_ONBOARDING_RESET: "/api/dev/onboarding",
     USER_VOCAB_BOARD: "/api/user/vocab-board",
+    PARENT_DASHBOARD: "/api/parent/dashboard",
     VOCAB_DICTIONARY: "/api/vocab/dictionary",
     FIX_BOARD: "/api/fix-board",
     FIX_REPORTS: "/api/fix-reports",

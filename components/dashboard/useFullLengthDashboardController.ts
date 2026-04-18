@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 
 import { getClientCache, setClientCache } from "@/lib/clientCache";
 import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
+import { preloadInitialAppData } from "@/lib/startupPreload";
 import {
   fetchTestsPage,
   getTestsClientCacheKey,
@@ -72,6 +73,15 @@ export function useFullLengthDashboardController() {
     let cancelled = false;
 
     const loadUserResults = async () => {
+      await preloadInitialAppData({
+        role: session.user.role,
+        userId: session.user.id,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
       // --- Read-through cache: serve instantly if results are already cached ---
       const cachedResults = getClientCache<UserResultSummary[]>(CACHE_USER_RESULTS);
 
@@ -118,6 +128,17 @@ export function useFullLengthDashboardController() {
     let cancelled = false;
 
     const loadTests = async () => {
+      if (session?.user?.id) {
+        await preloadInitialAppData({
+          role: session.user.role,
+          userId: session.user.id,
+        });
+
+        if (cancelled) {
+          return;
+        }
+      }
+
       const filters = { selectedPeriod } as const;
       const cacheKey = getTestsClientCacheKey(page, pageSize, sortOption, filters);
       const cachedTests = getClientCache<CachedTestsPayload>(cacheKey);
@@ -159,7 +180,7 @@ export function useFullLengthDashboardController() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, selectedPeriod, sortOption]);
+  }, [page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption]);
 
   return {
     session,

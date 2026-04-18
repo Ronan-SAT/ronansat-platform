@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
 import { useSession } from "next-auth/react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import AuthWorkbookShell from "@/components/auth/AuthWorkbookShell";
 import Loading from "@/components/Loading";
 import { API_PATHS } from "@/lib/apiPaths";
@@ -118,6 +119,7 @@ export default function AuthPage() {
           : "Set up your profile and start the redesigned workbook experience."
       }
     >
+      <InitialTabBootReady />
       {message ? (
         <div className={`${MESSAGE_CLASS_NAME} ${isError ? "bg-accent-3 text-white" : "bg-primary text-ink-fg"}`}>
           {message}

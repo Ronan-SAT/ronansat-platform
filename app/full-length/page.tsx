@@ -1,5 +1,7 @@
 "use client";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
+import Loading from "@/components/Loading";
 import TestLibrary from "@/components/dashboard/TestLibrary";
 import { useFullLengthDashboardController } from "@/components/dashboard/useFullLengthDashboardController";
 
@@ -23,25 +25,7 @@ export default function FullLengthDashboard() {
   } = useFullLengthDashboardController();
 
   if (status === "loading" && !hasCachedDashboardView) {
-    return (
-      <div className="min-h-screen bg-paper-bg pb-12">
-        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <TestLibrary
-            uniquePeriods={["All", "March 2026", "May 2026"]}
-            selectedPeriod="All"
-            setSelectedPeriod={() => {}}
-            sortOption="newest"
-            setSortOption={() => {}}
-            page={1}
-            setPage={() => {}}
-            loading
-            filteredTests={[]}
-            totalPages={1}
-            userResults={[]}
-          />
-        </main>
-      </div>
-    );
+    return <Loading showQuote={false} />;
   }
 
   if (!session && status !== "loading") {
@@ -50,6 +34,7 @@ export default function FullLengthDashboard() {
 
   return (
     <div className="min-h-screen bg-paper-bg pb-12">
+      <InitialTabBootReady />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <section className="workbook-panel-muted mb-6 overflow-hidden">
           <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, Cake, LoaderCircle, UserRound } from "lucide-react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import Loading from "@/components/Loading";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
@@ -169,6 +170,7 @@ export default function WelcomePage() {
 
   return (
     <div className="min-h-screen bg-paper-bg px-4 py-8 sm:px-6 lg:px-8">
+      <InitialTabBootReady />
       <div className="mx-auto max-w-4xl">
         <section className="workbook-panel-muted overflow-hidden">
           <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">

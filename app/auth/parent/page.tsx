@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import AuthWorkbookShell from "@/components/auth/AuthWorkbookShell";
 import Loading from "@/components/Loading";
 
@@ -194,6 +195,7 @@ export default function ParentAuthPage() {
       backHref="/auth"
       backLabel="Back to student sign in"
     >
+      <InitialTabBootReady />
       <div className="mb-5 rounded-2xl border-2 border-ink-fg bg-paper-bg px-4 py-4 text-sm font-medium leading-6 text-ink-fg">
         {view === "link"
           ? "Step 1: enter the student's email. Step 2: the student receives a 6-digit code. Step 3: use that code to finish parent access."

@@ -1,4 +1,4 @@
-export default function AppMinimalLoading() {
+export default function PrettyLoading() {
   return (
     <div className="app-loading-scene bg-dot-pattern fixed inset-0 z-[80] overflow-hidden bg-paper-bg px-4 py-5 text-ink-fg sm:px-6 sm:py-10">
       <div className="pointer-events-none absolute inset-0">

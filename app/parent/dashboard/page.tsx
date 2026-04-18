@@ -3,67 +3,23 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Activity, ArrowRight, CalendarRange, ChevronLeft, ChevronRight, Trophy, Users } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import ActivityHeatmap from "@/components/ActivityHeatmap";
+import InitialTabBootReady from "@/components/InitialTabBootReady";
 import LeaderboardTable from "@/components/dashboard/LeaderboardTable";
 import LeaderboardTableSkeleton from "@/components/dashboard/LeaderboardTableSkeleton";
+import Loading from "@/components/Loading";
+import { API_PATHS } from "@/lib/apiPaths";
+import { getClientCache, setClientCache } from "@/lib/clientCache";
+import { preloadInitialAppData } from "@/lib/startupPreload";
+import type {
+  ParentDashboardResponse,
+  ParentScoreHistoryPoint,
+  ParentTestsPerDayPoint,
+  ParentTimeSpentPerDayPoint,
+} from "@/types/parentDashboard";
 import type { LeaderboardEntry } from "@/types/testLibrary";
-
-type Overview = {
-  highestScore: number;
-  testsCompleted: number;
-  activityLast30Days: number;
-  lastActiveAt: string | null;
-};
-
-type ScoreHistoryPoint = {
-  id: string;
-  dateKey: string;
-  label: string;
-  total: number;
-  math: number;
-  rw: number;
-  takenAt: string;
-};
-
-type TestsPerDayPoint = {
-  dateKey: string;
-  label: string;
-  tests: number;
-};
-
-type TimeSpentPerDayPoint = {
-  dateKey: string;
-  label: string;
-  minutes: number;
-};
-
-type RecentTestItem = {
-  id: string;
-  testName: string;
-  takenAt: string;
-  dateLabel: string;
-  timeLabel: string;
-  readingWritingScore: number;
-  mathScore: number;
-  totalScore: number;
-};
-
-type ParentDashboardResponse = {
-  hasChildren: boolean;
-  child: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-  overview: Overview;
-  timeSpentByWindow: Record<string, number>;
-  scoreHistory: ScoreHistoryPoint[];
-  testsPerDay: Record<string, TestsPerDayPoint[]>;
-  timeSpentPerDay: Record<string, TimeSpentPerDayPoint[]>;
-  recentTests: RecentTestItem[];
-  error?: string;
-};
 
 type LeaderboardResponse = {
   leaderboard?: LeaderboardEntry[];
@@ -81,26 +37,9 @@ const SCORE_OPTIONS: Array<{ key: ScoreDisplayOption; label: string; color: stri
 
 const TREND_WINDOW_OPTIONS: TrendWindow[] = [7, 15, 30];
 const TESTS_PER_PAGE = 10;
-
-function DashboardSkeleton() {
-  return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-24 rounded-3xl bg-slate-200/70" />
-      <div className="flex flex-wrap gap-4">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="h-32 min-w-[15rem] flex-1 rounded-3xl bg-slate-200/70 xl:max-w-[18rem]" />
-        ))}
-      </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(21rem,0.95fr)]">
-        <div className="h-[28rem] rounded-3xl bg-slate-200/70" />
-        <div className="h-[28rem] rounded-3xl bg-slate-200/70 xl:ml-auto xl:w-full xl:max-w-[24rem]" />
-      </div>
-      <div className="h-[24rem] rounded-3xl bg-slate-200/70" />
-      <div className="h-[26rem] rounded-3xl bg-slate-200/70" />
-      <div className="h-[30rem] rounded-3xl bg-slate-200/70" />
-    </div>
-  );
-}
+const PARENT_DASHBOARD_CACHE_KEY = "parent:dashboard";
+const PARENT_LEADERBOARD_CACHE_KEY = "dashboard:leaderboard";
+const PARENT_LEADERBOARD_API_CACHE_KEY = "api:dashboard:leaderboard";
 
 function formatMinutes(totalMinutes: number) {
   if (totalMinutes < 60) {
@@ -182,7 +121,7 @@ function ScoreHistoryChart({
   onSelectMetric,
   onSelectWindow,
 }: {
-  data: ScoreHistoryPoint[];
+  data: ParentScoreHistoryPoint[];
   selectedMetric: ScoreDisplayOption;
   selectedWindow: TrendWindow;
   onSelectMetric: (value: ScoreDisplayOption) => void;
@@ -321,7 +260,7 @@ function DailyTestsChart({
   selectedWindow,
   onSelectWindow,
 }: {
-  data: TestsPerDayPoint[];
+  data: ParentTestsPerDayPoint[];
   selectedWindow: TrendWindow;
   onSelectWindow: (value: TrendWindow) => void;
 }) {
@@ -431,7 +370,7 @@ function TimeSpentChart({
   onSelectWindow,
   selectedTotalMinutes,
 }: {
-  data: TimeSpentPerDayPoint[];
+  data: ParentTimeSpentPerDayPoint[];
   selectedWindow: TrendWindow;
   onSelectWindow: (value: TrendWindow) => void;
   selectedTotalMinutes: number;
@@ -574,6 +513,7 @@ function StatCard({
 }
 
 export default function ParentDashboardPage() {
+  const { data: session, status } = useSession();
   const [data, setData] = useState<ParentDashboardResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -593,7 +533,26 @@ export default function ParentDashboardPage() {
         setLoading(true);
         setError("");
 
-        const response = await fetch("/api/parent/dashboard", {
+        if (session?.user?.id) {
+          await preloadInitialAppData({
+            role: session.user.role,
+            userId: session.user.id,
+          });
+
+          if (!isMounted) {
+            return;
+          }
+        }
+
+        const cachedDashboard = getClientCache<ParentDashboardResponse>(PARENT_DASHBOARD_CACHE_KEY);
+
+        if (cachedDashboard) {
+          setData(cachedDashboard);
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(API_PATHS.PARENT_DASHBOARD, {
           method: "GET",
           cache: "no-store",
         });
@@ -605,6 +564,7 @@ export default function ParentDashboardPage() {
         }
 
         if (isMounted) {
+          setClientCache(PARENT_DASHBOARD_CACHE_KEY, payload);
           setData(payload);
         }
       } catch (err) {
@@ -622,6 +582,17 @@ export default function ParentDashboardPage() {
       try {
         setLeaderboardLoading(true);
 
+        const cachedLeaderboard =
+          getClientCache<LeaderboardEntry[]>(PARENT_LEADERBOARD_CACHE_KEY) ??
+          getClientCache<LeaderboardEntry[]>(PARENT_LEADERBOARD_API_CACHE_KEY);
+
+        if (cachedLeaderboard) {
+          setClientCache(PARENT_LEADERBOARD_CACHE_KEY, cachedLeaderboard);
+          setLeaderboard(cachedLeaderboard);
+          setLeaderboardLoading(false);
+          return;
+        }
+
         const response = await fetch("/api/leaderboard", {
           method: "GET",
           cache: "no-store",
@@ -634,6 +605,7 @@ export default function ParentDashboardPage() {
         }
 
         if (isMounted) {
+          setClientCache(PARENT_LEADERBOARD_CACHE_KEY, payload.leaderboard ?? []);
           setLeaderboard(payload.leaderboard ?? []);
         }
       } catch (err) {
@@ -655,7 +627,11 @@ export default function ParentDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [session?.user?.id, session?.user?.role]);
+
+  if (!data && (status === "loading" || loading)) {
+    return <Loading showQuote={false} />;
+  }
 
   const heatmapResults = useMemo(
     () =>
@@ -687,16 +663,6 @@ export default function ParentDashboardPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [data?.recentTests.length]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-paper-bg px-6 py-8">
-        <div className="mx-auto max-w-7xl">
-          <DashboardSkeleton />
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -744,6 +710,7 @@ export default function ParentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-paper-bg text-ink-fg">
+      <InitialTabBootReady />
       <header className="border-b-4 border-ink-fg bg-surface-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-6 md:flex-row md:items-end md:justify-between">
           <div>

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
 import { getClientCache, setClientCache } from "@/lib/clientCache";
+import { preloadInitialAppData } from "@/lib/startupPreload";
 import { fetchQuestionExplanation, fetchReviewResults } from "@/lib/services/reviewService";
 import type { ReviewAnswer, ReviewResult } from "@/types/review";
 import { filterReviewResultsByType } from "@/components/review/reviewPage.utils";
@@ -12,7 +13,7 @@ import { filterReviewResultsByType } from "@/components/review/reviewPage.utils"
 const REVIEW_RESULTS_CACHE_KEY = "review:results";
 
 export function useReviewPageController() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const urlMode = searchParams.get("mode");
   const urlTestId = searchParams.get("testId");
@@ -62,6 +63,27 @@ export function useReviewPageController() {
     let cancelled = false;
 
     const loadResults = async () => {
+      if (session?.user?.id) {
+        await preloadInitialAppData({
+          role: session.user.role,
+          userId: session.user.id,
+        });
+
+        if (cancelled) {
+          return;
+        }
+      }
+
+      const cachedResults = getClientCache<ReviewResult[]>(REVIEW_RESULTS_CACHE_KEY) ?? [];
+
+      if (cachedResults.length > 0) {
+        initialResultsCacheRef.current = cachedResults;
+        setResults(cachedResults);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
       if (initialResultsCacheRef.current.length > 0) {
         setLoading(false);
         setRefreshing(true);
@@ -92,7 +114,7 @@ export function useReviewPageController() {
     return () => {
       cancelled = true;
     };
-  }, [hasHydratedClientCache, status]);
+  }, [hasHydratedClientCache, session?.user?.id, session?.user?.role, status]);
 
   const filteredResults = useMemo(() => filterReviewResultsByType(results, testType), [results, testType]);
 
