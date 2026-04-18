@@ -15,6 +15,8 @@ export default async function SettingsPage() {
     <SettingsPageClient
       initialName={session.user.name ?? ""}
       initialEmail={session.user.email ?? ""}
+      initialUsername={session.user.username ?? ""}
+      initialBirthDate={session.user.birthDate ?? ""}
     />
   );
 }

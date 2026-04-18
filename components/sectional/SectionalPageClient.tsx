@@ -5,11 +5,7 @@ import { SectionalTestLibrary } from "@/components/sectional/SectionalTestLibrar
 import { useSectionalTestsController } from "@/components/sectional/useSectionalTestsController";
 import type { UserResultSummary } from "@/types/testLibrary";
 
-export default function SectionalPageClient({
-  initialUserResults,
-}: {
-  initialUserResults: UserResultSummary[];
-}) {
+export default function SectionalPageClient() {
   const {
     hasCachedSectionalView,
     loading,
@@ -26,7 +22,7 @@ export default function SectionalPageClient({
     setPage,
     setSelectedPeriod,
     setModuleFilter,
-  } = useSectionalTestsController(initialUserResults);
+  } = useSectionalTestsController();
 
   if (loading && !hasCachedSectionalView) {
     return <Loading showQuote={false} />;

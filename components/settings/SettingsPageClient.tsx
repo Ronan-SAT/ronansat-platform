@@ -16,9 +16,13 @@ import {
 export default function SettingsPageClient({
   initialName,
   initialEmail,
+  initialUsername,
+  initialBirthDate,
 }: {
   initialName: string;
   initialEmail: string;
+  initialUsername: string;
+  initialBirthDate: string;
 }) {
   const { data: session, update } = useSession();
   const { theme: testingRoomTheme, setTheme: setTestingRoomTheme, hasHydrated: testingRoomThemeHydrated } =
@@ -36,6 +40,8 @@ export default function SettingsPageClient({
 
   const currentName = session?.user?.name ?? initialName;
   const currentEmail = session?.user?.email ?? initialEmail;
+  const currentUsername = session?.user?.username ?? initialUsername;
+  const currentBirthDate = session?.user?.birthDate ?? initialBirthDate;
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,6 +199,30 @@ export default function SettingsPageClient({
               />
             </div>
 
+            <div>
+              <label className="mb-1 block text-sm font-semibold uppercase tracking-[0.16em] text-ink-fg">
+                Username
+              </label>
+              <input
+                type="text"
+                disabled
+                value={currentUsername || "Not set"}
+                className="workbook-input max-w-md cursor-not-allowed bg-paper-bg text-ink-fg/60"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold uppercase tracking-[0.16em] text-ink-fg">
+                Birthdate
+              </label>
+              <input
+                type="text"
+                disabled
+                value={formatBirthDate(currentBirthDate) || "Not set"}
+                className="workbook-input max-w-md cursor-not-allowed bg-paper-bg text-ink-fg/60"
+              />
+            </div>
+
             <div className="flex justify-start pt-4">
               <button
                 type="submit"
@@ -300,6 +330,27 @@ export default function SettingsPageClient({
       </div>
     </div>
   );
+}
+
+function formatBirthDate(value?: string) {
+  if (!value) {
+    return "";
+  }
+
+  const [yearString, monthString, dayString] = value.split("-");
+  const year = Number(yearString);
+  const month = Number(monthString);
+  const day = Number(dayString);
+
+  if (!year || !month || !day) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
 }
 
 function ThemeOptionCard({

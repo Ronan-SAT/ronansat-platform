@@ -286,3 +286,39 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 - Results are now normalized into separate `summary` and `detail` view shapes at the service boundary, preventing the dashboard/library surfaces from pulling full populated review payloads.
 - The parent dashboard data model now comes from `lib/services/parentDashboardService.ts`, which is shared by the page and API route so the heavy aggregation logic only exists in one place.
 - Verification completed with `npm run lint` and `npm run build`.
+
+### 2026-04-18 Performance Regression Follow-up
+- In progress: audit regressions introduced by the 2026-04-17 caching pass, with priority on broken figure/table rendering in the live test flow.
+- Fixes must preserve request dedupe and payload reductions while restoring the full question data contract required by test and review surfaces.
+- Verify question/image rendering, cache freshness boundaries, and any route-specific regressions before closing this follow-up.
+
+- Done: versioned the question cache (pi:questions:v2) and restored question visual rendering through a shared extra-or-image block so stale cached question payloads no longer hide tables/charts or skip image-only figures.
+
+### 2026-04-18 Selective GitHub Loading Port Start
+
+- This pass ports only the safe loading and redirect improvements from `origin/main` into the current local branch.
+- Local remains the source of truth for server-first session hydration, route-local board providers, and the recent question/rendering fixes.
+- The approved GitHub-derived pieces are a shared post-auth redirect helper and a startup cache preloader aligned with current local cache keys.
+- The explicitly rejected GitHub pieces are the client-only `AuthProvider`, the root-level `VocabBoardProvider`, and any global boot overlay path that can block rendering without a guaranteed clear path.
+
+### 2026-04-18 Selective GitHub Loading Port Complete
+
+- Added `lib/getPostAuthRedirectPath.ts` and switched `/`, `/auth`, `/auth/redirect`, `/auth/parent`, `/auth/forgot-password`, and `/auth/reset-password` to use the shared redirect decision instead of mixing hard-coded paths and `window.location` redirects.
+- Kept the local server-first session architecture in `app/layout.tsx` and `components/AuthProvider.tsx`; the GitHub client-only auth boot path was intentionally not imported.
+- Added `components/AppStartupPreloader.tsx` and `lib/startupPreload.ts` to warm the existing dashboard, review, test-library, leaderboard, and parent-dashboard cache keys after authentication without blocking route render.
+- Explicitly did not port the GitHub global boot overlay or the root-level `VocabBoardProvider`, because those changes would reintroduce known regressions in local.
+
+### 2026-04-18 Remote Sync Follow-up Start
+
+- Fetched the latest `origin/main` and reviewed the recent auth/loading/onboarding commits instead of pulling blindly into the local branch.
+- The next selective port will bring in the remote student profile-completion feature (`username` + `birthDate`) while keeping local server-first session hydration, non-blocking preloaders, and the current render/cache fixes intact.
+- Remote global loading overlays, client-only auth boot changes, and root-level provider changes remain out of scope for this sync because they are still incompatible with local stability goals.
+
+### 2026-04-18 Remote Sync Follow-up Complete
+
+- Ported the remote student onboarding/profile-completion feature into local through `username` and `birthDate` fields on the user model, session payload, `/welcome`, and the onboarding/username APIs.
+- Kept local server-first auth boot, route-local providers, and the non-blocking startup preloader; no remote loading overlay or client-only auth changes were merged.
+- Added server-side student onboarding gates to the main protected study routes (`dashboard`, `full-length`, `review`, `sectional`) so incomplete student profiles are routed to `/welcome` without changing admin or parent flows.
+- Extended settings to show locked `username` and `birthDate` while preserving the local editable display-name behavior.
+- Verification passed with `eslint`, `tsc`, and `npm run build`. HTTP smoke checks passed for unauthenticated redirects and onboarding API auth guards. Full end-to-end authenticated QA is still blocked by a DB-backed auth/register issue in the current environment.
+

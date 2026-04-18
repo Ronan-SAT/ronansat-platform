@@ -218,8 +218,8 @@ function buildRangeSummary(results: UserResultSummary[], range: RangeOption) {
 
     chartData.push({
       dateKey,
-      shortLabel: currentDate.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      fullLabel: currentDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      shortLabel: currentDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      fullLabel: currentDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
       score: bestScoresByDate.get(dateKey) ?? null,
     });
   }

@@ -7,6 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isValidEmail, normalizeEmail } from "@/lib/security";
+import { hasCompletedStudentProfile } from "@/lib/userProfile";
 import type { Role } from "@/lib/permissions";
 
 export const authOptions: NextAuthOptions = {
@@ -57,6 +58,9 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role as Role,
+          username: user.username,
+          birthDate: user.birthDate,
+          hasCompletedProfile: hasCompletedStudentProfile(user),
         };
       },
     }),
@@ -89,17 +93,35 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      if (trigger === "update") {
+        token.name = typeof session?.name === "string" ? session.name : token.name;
+        token.username = typeof session?.username === "string" ? session.username : token.username;
+        token.birthDate = typeof session?.birthDate === "string" ? session.birthDate : token.birthDate;
+        token.hasCompletedProfile =
+          typeof session?.hasCompletedProfile === "boolean"
+            ? session.hasCompletedProfile
+            : token.hasCompletedProfile;
+      }
+
       if (account?.provider === "google") {
         await dbConnect();
         const dbUser = await User.findOne({ email: token.email });
         if (dbUser) {
           token.id = dbUser._id.toString();
           token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.username = dbUser.username;
+          token.birthDate = dbUser.birthDate;
+          token.hasCompletedProfile = hasCompletedStudentProfile(dbUser);
         }
       } else if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.name = user.name;
+        token.username = user.username;
+        token.birthDate = user.birthDate;
+        token.hasCompletedProfile = user.hasCompletedProfile;
       }
       return token;
     },
@@ -107,6 +129,10 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
+        session.user.name = token.name;
+        session.user.username = typeof token.username === "string" ? token.username : undefined;
+        session.user.birthDate = typeof token.birthDate === "string" ? token.birthDate : undefined;
+        session.user.hasCompletedProfile = Boolean(token.hasCompletedProfile);
       }
       return session;
     },

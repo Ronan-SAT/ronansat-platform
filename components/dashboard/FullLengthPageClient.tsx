@@ -4,11 +4,9 @@ import TestLibrary from "@/components/dashboard/TestLibrary";
 import { useFullLengthDashboardController } from "@/components/dashboard/useFullLengthDashboardController";
 import type { UserResultSummary } from "@/types/testLibrary";
 
-export default function FullLengthPageClient({
-  initialUserResults,
-}: {
-  initialUserResults: UserResultSummary[];
-}) {
+import Loading from "@/components/Loading";
+
+export default function FullLengthPageClient() {
   const {
     testsLoading,
     testsRefreshing,
@@ -18,10 +16,15 @@ export default function FullLengthPageClient({
     selectedPeriod,
     uniquePeriods,
     filteredTests,
+    userResults,
     setSortOption,
     setPage,
     setSelectedPeriod,
-  } = useFullLengthDashboardController({ userResults: initialUserResults });
+  } = useFullLengthDashboardController();
+
+  if (testsLoading && !filteredTests.length) {
+    return <Loading showQuote={false} />;
+  }
 
   return (
     <div className="min-h-screen bg-paper-bg pb-12">
@@ -50,7 +53,7 @@ export default function FullLengthPageClient({
           syncing={testsRefreshing}
           filteredTests={filteredTests}
           totalPages={totalPages}
-          userResults={initialUserResults}
+          userResults={userResults}
         />
       </main>
     </div>

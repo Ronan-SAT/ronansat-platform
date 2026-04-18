@@ -11,11 +11,9 @@ import type {
   UserResultSummary,
 } from "@/types/testLibrary";
 
-interface FullLengthDashboardOptions {
-  userResults: UserResultSummary[];
-}
+import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
 
-export function useFullLengthDashboardController({ userResults }: FullLengthDashboardOptions) {
+export function useFullLengthDashboardController() {
   const pageSize = 15;
   const initialTestsCacheRef = useRef<CachedTestsPayload | undefined>(undefined);
   const initialTestsCache = initialTestsCacheRef.current;
@@ -29,6 +27,7 @@ export function useFullLengthDashboardController({ userResults }: FullLengthDash
   const [page, setPage] = useState(1);
   const [selectedPeriod, setSelectedPeriod] = useState("All");
   const [totalPages, setTotalPages] = useState(1);
+  const [userResults, setUserResults] = useState<UserResultSummary[]>([]);
 
   const hasCachedDashboardView = hasHydratedClientCache && Boolean(initialTestsCache);
 
@@ -102,6 +101,12 @@ export function useFullLengthDashboardController({ userResults }: FullLengthDash
       cancelled = true;
     };
   }, [page, pageSize, selectedPeriod, sortOption]);
+
+  useEffect(() => {
+    fetchDashboardUserResults(30).then((res) => {
+      setUserResults(res);
+    });
+  }, []);
 
   return {
     hasCachedDashboardView,

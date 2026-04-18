@@ -11,6 +11,7 @@ import AuthWorkbookShell from "@/components/auth/AuthWorkbookShell";
 import Loading from "@/components/Loading";
 import { API_PATHS } from "@/lib/apiPaths";
 import api from "@/lib/axios";
+import { getPostAuthRedirectPath } from "@/lib/getPostAuthRedirectPath";
 
 const FIELD_CLASS_NAME = "workbook-input";
 const MESSAGE_CLASS_NAME =
@@ -18,7 +19,7 @@ const MESSAGE_CLASS_NAME =
 
 export default function AuthPage() {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -30,9 +31,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/auth/redirect");
+      router.replace(getPostAuthRedirectPath(session?.user));
     }
-  }, [router, status]);
+  }, [router, session?.user, status]);
 
   if (status === "loading" || status === "authenticated") {
     return <Loading showQuote={false} />;
@@ -65,7 +66,7 @@ export default function AuthPage() {
           return;
         }
 
-        window.location.assign("/auth/redirect");
+        router.replace(getPostAuthRedirectPath(nextSession.user));
         return;
       }
 
@@ -74,7 +75,8 @@ export default function AuthPage() {
       if (response.status >= 200 && response.status < 300) {
         setMessage("Account created. Redirecting into your workbook...");
         await signIn("credentials", { email, password, redirect: false });
-        window.location.assign("/auth/redirect");
+        const nextSession = await getSession();
+        router.replace(getPostAuthRedirectPath(nextSession?.user));
         return;
       }
 

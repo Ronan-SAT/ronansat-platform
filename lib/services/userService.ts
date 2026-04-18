@@ -6,7 +6,7 @@ export const userService = {
     await dbConnect();
 
     const user = await User.findById(userId)
-      .select("name email role highestScore lastTestDate createdAt updatedAt")
+      .select("name username birthDate email role highestScore lastTestDate createdAt updatedAt")
       .lean();
 
     if (!user) {

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 
 import SectionalPageClient from "@/components/sectional/SectionalPageClient";
 import { authOptions } from "@/lib/authOptions";
-import { resultService } from "@/lib/services/resultService";
-import type { UserResultSummary } from "@/types/testLibrary";
+import { isStudentProfileIncomplete } from "@/lib/userProfile";
 
 export default async function SectionalPage() {
   const session = await getServerSession(authOptions);
@@ -17,9 +16,9 @@ export default async function SectionalPage() {
     redirect("/parent/dashboard");
   }
 
-  const userResultsResponse = await resultService.getUserResults(session.user.id, {
-    view: "summary",
-  });
+  if (isStudentProfileIncomplete(session.user)) {
+    redirect("/welcome");
+  }
 
-  return <SectionalPageClient initialUserResults={userResultsResponse.results as UserResultSummary[]} />;
+  return <SectionalPageClient />;
 }

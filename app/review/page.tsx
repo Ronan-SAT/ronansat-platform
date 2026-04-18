@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 
 import ReviewPageClient from "@/components/review/ReviewPageClient";
 import { authOptions } from "@/lib/authOptions";
-import { resultService } from "@/lib/services/resultService";
-import type { ReviewResult } from "@/types/review";
+import { isStudentProfileIncomplete } from "@/lib/userProfile";
 
 export default async function ReviewPage() {
   const session = await getServerSession(authOptions);
@@ -17,9 +16,9 @@ export default async function ReviewPage() {
     redirect("/parent/dashboard");
   }
 
-  const resultsResponse = await resultService.getUserResults(session.user.id, {
-    view: "detail",
-  });
+  if (isStudentProfileIncomplete(session.user)) {
+    redirect("/welcome");
+  }
 
-  return <ReviewPageClient initialResults={resultsResponse.results as ReviewResult[]} />;
+  return <ReviewPageClient />;
 }

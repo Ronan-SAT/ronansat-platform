@@ -89,7 +89,7 @@ export function ReviewResultsSidebar({
                 <p className="truncate font-display text-xl font-black tracking-tight">{result.testId?.title}</p>
                 <div className="mt-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-fg/70">
                   <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                  {new Date(result.date || result.createdAt || "").toLocaleDateString()}
+                  {new Date(result.date || result.createdAt || "").toLocaleDateString("en-US")}
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">

@@ -6,7 +6,9 @@ import { getClientCache, setClientCache } from "@/lib/clientCache";
 import { fetchTestsPage, getTestsClientCacheKey } from "@/lib/services/testLibraryService";
 import type { CachedTestsPayload, SortOption, TestListItem, UserResultSummary } from "@/types/testLibrary";
 
-export function useSectionalTestsController(initialUserResults: UserResultSummary[]) {
+import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
+
+export function useSectionalTestsController() {
   const pageSize = 15;
   const initialTestsCacheRef = useRef<CachedTestsPayload | undefined>(undefined);
   const [hasHydratedClientCache, setHasHydratedClientCache] = useState(false);
@@ -19,6 +21,7 @@ export function useSectionalTestsController(initialUserResults: UserResultSummar
   const [selectedPeriod, setSelectedPeriod] = useState("All");
   const [moduleFilter, setModuleFilter] = useState<"reading" | "math">("reading");
   const [totalPages, setTotalPages] = useState(1);
+  const [userResults, setUserResults] = useState<UserResultSummary[]>([]);
 
   const hasCachedSectionalView = hasHydratedClientCache && Boolean(initialTestsCacheRef.current);
 
@@ -107,11 +110,17 @@ export function useSectionalTestsController(initialUserResults: UserResultSummar
     };
   }, [hasHydratedClientCache, page, pageSize, selectedPeriod, sortOption, moduleFilter]);
 
+  useEffect(() => {
+    fetchDashboardUserResults(30).then((res) => {
+      setUserResults(res);
+    });
+  }, []);
+
   return {
     hasCachedSectionalView,
     loading,
     testsRefreshing,
-    userResults: initialUserResults,
+    userResults,
     sortOption,
     page,
     totalPages,

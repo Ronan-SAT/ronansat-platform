@@ -7,12 +7,13 @@ import { useSession } from "next-auth/react";
 
 import AuthWorkbookShell from "@/components/auth/AuthWorkbookShell";
 import Loading from "@/components/Loading";
+import { getPostAuthRedirectPath } from "@/lib/getPostAuthRedirectPath";
 
 type MessageTone = "success" | "error";
 
 function ResetPasswordForm() {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
   const code = searchParams.get("code");
@@ -25,9 +26,9 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/auth/redirect");
+      router.replace(getPostAuthRedirectPath(session?.user));
     }
-  }, [router, status]);
+  }, [router, session?.user, status]);
 
   if (status === "loading" || status === "authenticated") {
     return <Loading showQuote={false} />;

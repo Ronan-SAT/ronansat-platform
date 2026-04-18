@@ -12,9 +12,14 @@ type CachedValue<T> = {
 };
 
 const QUESTION_CACHE_TTL_MS = 5 * 60 * 1000;
+const QUESTION_CACHE_VERSION = "v2";
 const QUESTION_TEST_PROJECTION =
-  "_id section module points correctAnswer questionType sprAnswers questionText passage imageUrl choices";
+  "_id section module points correctAnswer questionType sprAnswers questionText passage imageUrl choices extra";
 const questionCache = new Map<string, CachedValue<unknown>>();
+
+function getQuestionCacheKey(testId: string) {
+  return `${QUESTION_CACHE_VERSION}:${testId}`;
+}
 
 export function clearQuestionCache(testId?: string) {
   if (!testId) {
@@ -22,7 +27,7 @@ export function clearQuestionCache(testId?: string) {
     return;
   }
 
-  questionCache.delete(testId);
+  questionCache.delete(getQuestionCacheKey(testId));
 }
 
 export const questionService = {
@@ -33,7 +38,8 @@ export const questionService = {
       return Question.find({}).lean();
     }
 
-    const cached = questionCache.get(testId);
+    const cacheKey = getQuestionCacheKey(testId);
+    const cached = questionCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.value;
     }
@@ -42,7 +48,7 @@ export const questionService = {
       .select(QUESTION_TEST_PROJECTION)
       .lean();
 
-    questionCache.set(testId, {
+    questionCache.set(cacheKey, {
       value: questions,
       expiresAt: Date.now() + QUESTION_CACHE_TTL_MS,
     });

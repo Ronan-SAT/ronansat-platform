@@ -5,7 +5,7 @@ import { AlertCircle, BookOpen, Calculator, ChevronDown, ChevronUp, Sparkles, X 
 import "katex/dist/katex.min.css";
 
 import DesmosCalculator from "@/components/DesmosCalculator";
-import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
+import QuestionVisualBlock from "@/components/question/QuestionVisualBlock";
 import RichTextWithLatex from "@/components/RichTextWithLatex";
 import ReviewChatbot from "@/components/ReviewChatbot";
 import { ReportErrorButton } from "@/components/report/ReportErrorButton";
@@ -143,7 +143,7 @@ export default function ReviewPopup({
           <div className={`${q.passage ? "w-1/2" : "mx-auto w-full max-w-4xl"} h-full overflow-y-auto bg-paper-bg`}>
             <div className="flex flex-col gap-5 p-6 lg:p-8">
               {!q.passage ? (
-                <QuestionExtraBlock
+                <QuestionVisualBlock
                   extra={q.extra}
                   className="rounded-2xl border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm"
                   titleClassName="mb-2 text-center text-[16px] font-normal leading-[1.35] text-ink-fg font-[Georgia,serif]"

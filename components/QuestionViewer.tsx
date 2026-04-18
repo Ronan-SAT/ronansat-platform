@@ -3,7 +3,7 @@
 import { CSSProperties, useMemo, useState } from "react";
 import { Bookmark } from "lucide-react";
 
-import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
+import QuestionVisualBlock from "@/components/question/QuestionVisualBlock";
 import RichTextWithLatex from "@/components/RichTextWithLatex";
 import SelectableTextPanel, { type TextAnnotation } from "@/components/test/SelectableTextPanel";
 import { hasQuestionExtra, type QuestionExtra } from "@/lib/questionExtra";
@@ -149,7 +149,7 @@ export default function QuestionViewer({
       {hasLeftPanel ? (
         <div className={`hidden md:block md:h-full md:w-[var(--left-panel-width)] md:shrink-0 md:overflow-y-auto md:p-10 ${viewerTheme.leftPanelClass}`}>
             {hasRenderableExtra ? (
-              <QuestionExtraBlock
+              <QuestionVisualBlock
                 extra={question.extra}
                 className="mb-4 sm:mb-6"
                 titleClassName={`mb-2 text-center text-[14px] font-normal leading-[1.35] ${readingFontClass} text-ink-fg`}
@@ -197,7 +197,7 @@ export default function QuestionViewer({
         {hasLeftPanel ? (
           <div className={`px-4 pt-4 sm:px-6 md:hidden ${viewerTheme.leftPanelClass}`}>
             {hasRenderableExtra ? (
-              <QuestionExtraBlock
+              <QuestionVisualBlock
                 extra={question.extra}
                 className="mb-4"
                 titleClassName={`mb-2 text-center text-[14px] font-normal leading-[1.35] ${readingFontClass} text-ink-fg`}

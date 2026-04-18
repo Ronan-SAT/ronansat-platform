@@ -152,7 +152,8 @@ export function addVocabCardToBoard(
       ...board.cards,
       [id]: {
         id,
-        text: normalizedText,
+        term: normalizedText,
+        definition: "",
         createdAt: options?.createdAt ?? new Date().toISOString(),
         sourceQuestionId: options?.sourceQuestionId,
       },
@@ -211,7 +212,7 @@ export function moveVocabCardBetweenBuckets(board: VocabBoardState, cardId: stri
 }
 
 export function findDuplicateVocabCardId(board: VocabBoardState, normalizedText: string) {
-  return Object.values(board.cards).find((card) => normalizeVocabText(card.text).toLowerCase() === normalizedText.toLowerCase())?.id;
+  return Object.values(board.cards).find((card) => normalizeVocabText(card.term).toLowerCase() === normalizedText.toLowerCase())?.id;
 }
 
 export function normalizeVocabText(text: string) {

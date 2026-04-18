@@ -7,8 +7,11 @@ import { ReviewResultsSidebar } from "@/components/review/ReviewResultsSidebar";
 import { useReviewPageController } from "@/components/review/useReviewPageController";
 import type { ReviewResult } from "@/types/review";
 
-export default function ReviewPageClient({ initialResults }: { initialResults: ReviewResult[] }) {
+import Loading from "@/components/Loading";
+
+export default function ReviewPageClient() {
   const {
+    results,
     loading,
     refreshing,
     testType,
@@ -22,7 +25,11 @@ export default function ReviewPageClient({ initialResults }: { initialResults: R
     setActiveTestId,
     setSelectedAnswer,
     handleExpandExplanation,
-  } = useReviewPageController(initialResults);
+  } = useReviewPageController();
+
+  if (loading && !results.length) {
+    return <Loading showQuote={false} />;
+  }
 
   if (loading && filteredResults.length === 0) {
     return <ReviewPageSkeleton />;

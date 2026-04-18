@@ -8,6 +8,7 @@ import Test from "@/lib/models/Test";
 import User from "@/lib/models/User";
 import { clearLeaderboardCache } from "@/lib/services/leaderboardService";
 import { ResultValidationSchema } from "@/lib/schema/result";
+import type { QuestionExtra } from "@/lib/questionExtra";
 import type { ReviewAnswer, ReviewQuestion, ReviewResult } from "@/types/review";
 import type { UserResultSummary } from "@/types/testLibrary";
 
@@ -201,7 +202,7 @@ function normalizeReviewQuestion(question: unknown): ReviewQuestion | null | und
       : undefined,
     passage: typeof source.passage === "string" ? source.passage : undefined,
     imageUrl: typeof source.imageUrl === "string" ? source.imageUrl : undefined,
-    extra: "extra" in source ? source.extra : undefined,
+    extra: "extra" in source ? (source.extra as QuestionExtra) : undefined,
   };
 }
 

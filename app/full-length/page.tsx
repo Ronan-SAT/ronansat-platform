@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 
 import FullLengthPageClient from "@/components/dashboard/FullLengthPageClient";
 import { authOptions } from "@/lib/authOptions";
-import { resultService } from "@/lib/services/resultService";
-import type { UserResultSummary } from "@/types/testLibrary";
+import { isStudentProfileIncomplete } from "@/lib/userProfile";
 
 export default async function FullLengthPage() {
   const session = await getServerSession(authOptions);
@@ -17,9 +16,9 @@ export default async function FullLengthPage() {
     redirect("/parent/dashboard");
   }
 
-  const userResultsResponse = await resultService.getUserResults(session.user.id, {
-    view: "summary",
-  });
+  if (isStudentProfileIncomplete(session.user)) {
+    redirect("/welcome");
+  }
 
-  return <FullLengthPageClient initialUserResults={userResultsResponse.results as UserResultSummary[]} />;
+  return <FullLengthPageClient />;
 }

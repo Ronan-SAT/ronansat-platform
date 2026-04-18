@@ -569,7 +569,7 @@ export default function ParentDashboardPageClient({
             <div className="rounded-2xl border-2 border-ink-fg bg-paper-bg px-4 py-3 brutal-shadow-sm">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-fg/70">Last Active</div>
               <div className="mt-2 text-sm font-semibold text-ink-fg">
-                {initialData.overview.lastActiveAt ? new Date(initialData.overview.lastActiveAt).toLocaleDateString() : "No activity yet"}
+                {initialData.overview.lastActiveAt ? new Date(initialData.overview.lastActiveAt).toLocaleDateString("en-US") : "No activity yet"}
               </div>
             </div>
             <div className="rounded-2xl border-2 border-ink-fg bg-paper-bg px-4 py-3 brutal-shadow-sm">

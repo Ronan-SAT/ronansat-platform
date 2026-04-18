@@ -5,18 +5,20 @@ import type { LeaderboardEntry, UserResultSummary, UserStatsSummary } from "@/ty
 
 interface FetchOptions {
   forceRefresh?: boolean;
+  view?: "summary" | "detail";
 }
 
 export async function fetchDashboardUserResults(
   days?: number,
   options?: FetchOptions,
 ): Promise<UserResultSummary[]> {
-  const cacheKey = `api:dashboard:results:${days ?? "all"}`;
+  const view = options?.view ?? "summary";
+  const cacheKey = `api:dashboard:results:${days ?? "all"}:${view}`;
 
   return readThroughClientCache(
     cacheKey,
     async () => {
-      const query = new URLSearchParams({ view: "summary" });
+      const query = new URLSearchParams({ view });
       if (typeof days === "number") {
         query.set("days", String(days));
       }

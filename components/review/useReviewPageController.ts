@@ -8,16 +8,19 @@ import { fetchQuestionExplanation } from "@/lib/services/reviewService";
 import type { ReviewAnswer, ReviewResult } from "@/types/review";
 import { filterReviewResultsByType } from "@/components/review/reviewPage.utils";
 
+import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
+
 const REVIEW_RESULTS_CACHE_KEY = "review:results";
 
-export function useReviewPageController(initialResults: ReviewResult[]) {
+export function useReviewPageController() {
   const searchParams = useSearchParams();
   const urlMode = searchParams.get("mode");
   const urlTestId = searchParams.get("testId");
   const urlResultId = searchParams.get("resultId");
-  const initialResultsCacheRef = useRef<ReviewResult[]>(initialResults);
-  const [results, setResults] = useState<ReviewResult[]>(initialResults);
-  const [loading, setLoading] = useState(initialResults.length === 0);
+  const initialResultsCacheRef = useRef<ReviewResult[]>([]);
+  const cachedResults = typeof window !== "undefined" ? getClientCache<ReviewResult[]>(REVIEW_RESULTS_CACHE_KEY) : undefined;
+  const [results, setResults] = useState<ReviewResult[]>(cachedResults ?? []);
+  const [loading, setLoading] = useState(!cachedResults);
   const [refreshing, setRefreshing] = useState(false);
   const [testType, setTestType] = useState<"full" | "sectional">(urlMode === "sectional" ? "sectional" : "full");
   const [activeTestId, setActiveTestId] = useState<string | null>(null);
@@ -31,17 +34,17 @@ export function useReviewPageController(initialResults: ReviewResult[]) {
   const [loadingExplanations, setLoadingExplanations] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const cachedResults = getClientCache<ReviewResult[]>(REVIEW_RESULTS_CACHE_KEY);
-    const nextResults = cachedResults ?? initialResultsCacheRef.current;
-
-    initialResultsCacheRef.current = nextResults;
-    setResults(nextResults);
-    setLoading(nextResults.length === 0);
-
-    if (nextResults.length > 0) {
-      setClientCache(REVIEW_RESULTS_CACHE_KEY, nextResults);
-    }
-  }, [initialResults]);
+    fetchDashboardUserResults(undefined, { view: "detail" }).then((fetchedResults: any) => {
+      const nextResults = fetchedResults as ReviewResult[];
+      initialResultsCacheRef.current = nextResults;
+      setResults(nextResults);
+      setLoading(false);
+      
+      if (nextResults.length > 0) {
+        setClientCache(REVIEW_RESULTS_CACHE_KEY, nextResults);
+      }
+    });
+  }, []);
 
   const filteredResults = useMemo(() => filterReviewResultsByType(results, testType), [results, testType]);
 

@@ -33,7 +33,14 @@ export async function PUT(req: Request) {
     }
 
     return NextResponse.json(
-      { message: "Profile updated successfully", user: { name: updatedUser.name } },
+      {
+        message: "Profile updated successfully",
+        user: {
+          name: updatedUser.name,
+          username: updatedUser.username,
+          birthDate: updatedUser.birthDate,
+        },
+      },
       { status: 200 },
     );
   } catch (error: unknown) {

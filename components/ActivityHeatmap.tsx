@@ -75,7 +75,7 @@ export default function ActivityHeatmap({ results }: ActivityHeatmapProps) {
                 {day.count} test{day.count !== 1 ? "s" : ""}
               </div>
               <div className="text-ink-fg/70">
-                {day.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {day.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </div>
             </div>
           </div>
