@@ -429,7 +429,9 @@ function getTextOffset(root: HTMLElement, container: Node, offset: number) {
     return 0;
   }
 
-  return range.toString().length;
+  return getSelectableTextNodes(range.cloneContents())
+    .map((node) => node.data)
+    .join("").length;
 }
 
 function getTextSlice(root: HTMLElement, start: number, end: number) {
@@ -439,7 +441,7 @@ function getTextSlice(root: HTMLElement, start: number, end: number) {
   return fullText.slice(start, end).replace(/\s+/g, " ").trim();
 }
 
-function getSelectableTextNodes(root: HTMLElement) {
+function getSelectableTextNodes(root: ParentNode) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parentElement = node.parentElement;
@@ -451,13 +453,15 @@ function getSelectableTextNodes(root: HTMLElement) {
         return NodeFilter.FILTER_REJECT;
       }
 
-      if (parentElement.closest("annotation, semantics")) {
+      if (parentElement.closest("annotation, semantics, .katex-mathml, math")) {
         return NodeFilter.FILTER_REJECT;
       }
 
-      const computedStyle = window.getComputedStyle(parentElement);
-      if (computedStyle.display === "none" || computedStyle.visibility === "hidden") {
-        return NodeFilter.FILTER_REJECT;
+      if (root instanceof HTMLElement) {
+        const computedStyle = window.getComputedStyle(parentElement);
+        if (computedStyle.display === "none" || computedStyle.visibility === "hidden") {
+          return NodeFilter.FILTER_REJECT;
+        }
       }
 
       if (parentElement.getAttribute("aria-hidden") === "true") {

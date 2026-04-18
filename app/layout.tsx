@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import InitialTabBootOverlay from "@/components/InitialTabBootOverlay";
 import AppStartupPreloader from "@/components/AppStartupPreloader";
 import AuthProvider from "@/components/AuthProvider";
+import PostHogProvider from "@/components/PostHogProvider";
 import { WorkbookToaster } from "@/components/ui/WorkbookToaster";
 import { authOptions } from "@/lib/authOptions";
 import { INITIAL_TAB_BOOT_PENDING_KEY, INITIAL_TAB_LOAD_SEEN_KEY } from "@/lib/initialTabLoad";
@@ -61,10 +62,12 @@ export default async function RootLayout({
 }`}
         </Script>
         <AuthProvider session={session}>
-          <AppStartupPreloader />
-          <WorkbookToaster />
-          <AppShell>{children}</AppShell>
-          <InitialTabBootOverlay />
+          <PostHogProvider>
+              <AppStartupPreloader />
+              <WorkbookToaster />
+              <AppShell>{children}</AppShell>
+              <InitialTabBootOverlay />
+          </PostHogProvider>
         </AuthProvider>
       </body>
     </html>

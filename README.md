@@ -202,6 +202,8 @@ Environment variables used by the codebase:
 | `GOOGLE_CLIENT_ID` | For Google login | NextAuth Google provider |
 | `GOOGLE_CLIENT_SECRET` | For Google login | NextAuth Google provider |
 | `NEXT_PUBLIC_DESMOS_URL` | For Desmos-related UI | Public frontend URL |
+| `NEXT_PUBLIC_POSTHOG_KEY` | For PostHog analytics | Public PostHog project API key |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Optional | PostHog ingest host, defaults to `https://us.i.posthog.com` |
 
 Example `.env.local`:
 
@@ -219,6 +221,8 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
 NEXT_PUBLIC_DESMOS_URL=
+NEXT_PUBLIC_POSTHOG_KEY=
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
 ## 8. Service setup
@@ -296,6 +300,22 @@ http://localhost:3000/api/auth/callback/google
 ### 7.6 Gemini API
 
 Used for the question explanation chat feature.
+
+### 7.7 PostHog
+
+Used for client-side product analytics and pageview logging.
+
+Add:
+
+```env
+NEXT_PUBLIC_POSTHOG_KEY=<your-posthog-project-api-key>
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+Notes:
+
+- Leave `NEXT_PUBLIC_POSTHOG_HOST` as `https://us.i.posthog.com` unless your PostHog project uses a different region or a self-hosted instance.
+- Authenticated users are identified from the existing NextAuth session using their Ronan SAT user id, email, role, and profile metadata.
 
 ```env
 GEMINI_API_KEY=
