@@ -38,11 +38,6 @@ export default function WelcomePage() {
         return;
       }
 
-      if (session?.user.role === "ADMIN") {
-        router.replace("/admin");
-        return;
-      }
-
       router.replace("/dashboard");
     }
   }, [hasCompletedProfile, router, session?.user.role, status]);

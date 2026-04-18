@@ -24,10 +24,6 @@ export default async function AuthRedirectPage() {
     redirect("/parent/dashboard");
   }
 
-  if (user.role === "ADMIN") {
-    redirect("/admin");
-  }
-
   if (!hasCompletedStudentProfile(user)) {
     redirect("/welcome");
   }

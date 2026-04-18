@@ -205,7 +205,7 @@ export default function Navbar() {
 
   const isParent = session.user.role === "PARENT";
   const isAdmin = session.user.role === "ADMIN";
-  const homeHref = isAdmin ? "/admin" : "/dashboard";
+  const homeHref = isParent ? "/parent/dashboard" : "/dashboard";
   const navItems = isAdmin ? ADMIN_ITEMS : isParent ? PARENT_ITEMS : STUDENT_ITEMS;
   const displayName = session.user.name || session.user.email?.split("@")[0] || "Scholar";
 

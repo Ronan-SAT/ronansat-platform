@@ -16,10 +16,6 @@ function getHomePath(role?: string) {
     return "/parent/dashboard";
   }
 
-  if (role === "ADMIN") {
-    return "/admin";
-  }
-
   return "/dashboard";
 }
 
@@ -100,7 +96,6 @@ export const config = {
     "/hall-of-fame/:path*",
     "/settings/:path*",
     "/fix/:path*",
-    "/admin/:path*",
     "/parent/:path*",
     "/welcome",
   ],
