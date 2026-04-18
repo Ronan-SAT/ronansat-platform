@@ -8,6 +8,7 @@ import { CheckCircle2, Cake, LoaderCircle, UserRound } from "lucide-react";
 import InitialTabBootReady from "@/components/InitialTabBootReady";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+import { getPostAuthRedirectPath } from "@/lib/getPostAuthRedirectPath";
 import {
   USERNAME_REQUIREMENTS,
   isValidBirthDate,
@@ -33,14 +34,9 @@ export default function WelcomePage() {
 
   useEffect(() => {
     if (status === "authenticated" && hasCompletedProfile) {
-      if (session?.user.role === "PARENT") {
-        router.replace("/parent/dashboard");
-        return;
-      }
-
-      router.replace("/dashboard");
+      router.replace(getPostAuthRedirectPath(session?.user));
     }
-  }, [hasCompletedProfile, router, session?.user.role, status]);
+  }, [hasCompletedProfile, router, session?.user?.hasCompletedProfile, session?.user?.role, status]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -120,6 +116,36 @@ export default function WelcomePage() {
   const birthDateIsValid = isValidBirthDate(birthDate);
   const canSubmit = Boolean(normalizedUsername) && isUsernameAvailable && birthDateIsValid && !isSaving;
 
+  const getSubmitErrorMessage = (error: unknown) => {
+    const responseError = error as {
+      message?: string;
+      response?: {
+        status?: number;
+        data?: {
+          error?: string;
+          details?: string;
+        };
+      };
+    };
+
+    const serverError = responseError.response?.data?.error;
+    const details = responseError.response?.data?.details;
+
+    if (serverError && details) {
+      return `${serverError} Details: ${details}`;
+    }
+
+    if (serverError) {
+      return serverError;
+    }
+
+    if (responseError.message) {
+      return responseError.message;
+    }
+
+    return "Could not save your welcome details.";
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitMessage("");
@@ -148,16 +174,26 @@ export default function WelcomePage() {
         hasCompletedProfile: boolean;
       };
 
-      await update({
-        username: nextUser.username,
-        birthDate: nextUser.birthDate,
-        hasCompletedProfile: nextUser.hasCompletedProfile,
-      });
+      try {
+        await update({
+          username: nextUser.username,
+          birthDate: nextUser.birthDate,
+          hasCompletedProfile: nextUser.hasCompletedProfile,
+        });
+      } catch (sessionError) {
+        console.error("Welcome profile saved but session update failed", sessionError);
+        setSubmitMessage("Profile saved, but session refresh failed. Refresh the page and continue.");
+        return;
+      }
 
-      router.replace("/dashboard");
+      router.replace(
+        getPostAuthRedirectPath({
+          role: session.user.role,
+          hasCompletedProfile: nextUser.hasCompletedProfile,
+        })
+      );
     } catch (error: unknown) {
-      const responseError = error as { response?: { data?: { error?: string } } };
-      setSubmitMessage(responseError.response?.data?.error || "Could not save your welcome details.");
+      setSubmitMessage(getSubmitErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -174,7 +210,7 @@ export default function WelcomePage() {
               Lock in your workbook identity.
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-ink-fg md:text-base">
-              Choose a short username and add your birthdate once so your account is ready for the full student experience.
+              Choose a short username and add your birthdate once so your account is ready for the full workbook experience.
             </p>
           </div>
 
@@ -249,7 +285,7 @@ export default function WelcomePage() {
                 </div>
                 <div className="rounded-2xl border-2 border-ink-fg bg-surface-white p-4">
                   <p className="font-bold uppercase tracking-[0.14em]">Why birthdate?</p>
-                  <p className="mt-2">We collect it once during setup so your account profile is complete before you start using the app.</p>
+                  <p className="mt-2">We collect it once during setup so every account has a complete profile before using the app.</p>
                 </div>
                 <div className="rounded-2xl border-2 border-ink-fg bg-primary p-4">
                   <div className="flex items-start gap-3">

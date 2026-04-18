@@ -7,12 +7,12 @@ export function getPostAuthRedirectPath(user: RedirectUser) {
     return "/auth";
   }
 
-  if (user.role === "PARENT") {
-    return "/parent/dashboard";
-  }
-
   if (!user.hasCompletedProfile) {
     return "/welcome";
+  }
+
+  if (user.role === "PARENT") {
+    return "/parent/dashboard";
   }
 
   return "/dashboard";

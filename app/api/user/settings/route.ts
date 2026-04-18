@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
-import { hasCompletedStudentProfile } from "@/lib/userProfile";
+import { hasCompletedProfile } from "@/lib/userProfile";
 
 export async function GET() {
     try {
@@ -32,7 +32,7 @@ export async function GET() {
                     birthDate: user.birthDate,
                     email: user.email,
                     role: user.role,
-                    hasCompletedProfile: hasCompletedStudentProfile(user),
+                    hasCompletedProfile: hasCompletedProfile(user),
                 },
             },
             { status: 200 }

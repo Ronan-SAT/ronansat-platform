@@ -51,15 +51,11 @@ export function isValidBirthDate(value: string) {
   return value >= earliestAllowed && value <= todayValue;
 }
 
-export function hasCompletedStudentProfile(profile: {
+export function hasCompletedProfile(profile: {
   role?: string | null;
   username?: string | null;
   birthDate?: string | null;
 }) {
-  if (profile.role !== "STUDENT") {
-    return true;
-  }
-
   return Boolean(profile.username && profile.birthDate);
 }
 

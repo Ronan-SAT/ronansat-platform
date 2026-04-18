@@ -7,7 +7,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import {
   USERNAME_REQUIREMENTS,
-  hasCompletedStudentProfile,
+  hasCompletedProfile,
   isValidBirthDate,
   isValidUsername,
   normalizeUsername,
@@ -17,6 +17,49 @@ const onboardingSchema = z.object({
   username: z.string().trim().transform(normalizeUsername),
   birthDate: z.string().trim(),
 });
+
+function getOnboardingErrorResponse(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
+    return {
+      status: 409,
+      body: {
+        error: "That username is already taken.",
+      },
+    };
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "ValidationError" &&
+    "errors" in error &&
+    typeof error.errors === "object" &&
+    error.errors !== null
+  ) {
+    const details = Object.values(error.errors)
+      .map((issue) => (typeof issue === "object" && issue !== null && "message" in issue ? issue.message : ""))
+      .filter((message): message is string => typeof message === "string" && message.length > 0)
+      .join(" ");
+
+    return {
+      status: 400,
+      body: {
+        error: details || "Profile validation failed.",
+      },
+    };
+  }
+
+  const details = error instanceof Error && error.message ? error.message : "Unknown server error";
+
+  return {
+    status: 500,
+    body: {
+      error: "Failed to save your welcome profile.",
+      details,
+    },
+  };
+}
 
 export async function PUT(req: Request) {
   try {
@@ -48,10 +91,6 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.role !== "STUDENT") {
-      return NextResponse.json({ error: "Only student accounts use welcome setup." }, { status: 403 });
-    }
-
     if (user.username && user.username !== username) {
       return NextResponse.json({ error: "Username is already locked for this account." }, { status: 409 });
     }
@@ -76,17 +115,20 @@ export async function PUT(req: Request) {
         user: {
           username: user.username,
           birthDate: user.birthDate,
-          hasCompletedProfile: hasCompletedStudentProfile(user),
+          hasCompletedProfile: hasCompletedProfile(user),
         },
       },
       { status: 200 }
     );
   } catch (error) {
-    if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
-      return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
-    }
+    const errorResponse = getOnboardingErrorResponse(error);
 
-    console.error("PUT /api/user/onboarding error:", error);
-    return NextResponse.json({ error: "Failed to save your welcome profile." }, { status: 500 });
+    console.error("PUT /api/user/onboarding error:", {
+      userId: session?.user?.id,
+      error,
+      response: errorResponse,
+    });
+
+    return NextResponse.json(errorResponse.body, { status: errorResponse.status });
   }
 }

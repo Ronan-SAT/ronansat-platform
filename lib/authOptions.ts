@@ -8,7 +8,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { isValidEmail, normalizeEmail } from "@/lib/security";
-import { hasCompletedStudentProfile } from "@/lib/userProfile";
+import { hasCompletedProfile } from "@/lib/userProfile";
 import type { Role } from "@/lib/permissions";
 
 loadAppEnv();
@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role as Role,
           username: user.username,
           birthDate: user.birthDate,
-          hasCompletedProfile: hasCompletedStudentProfile(user),
+          hasCompletedProfile: hasCompletedProfile(user),
         };
       },
     }),
@@ -122,7 +122,7 @@ export const authOptions: NextAuthOptions = {
           token.name = dbUser.name;
           token.username = dbUser.username;
           token.birthDate = dbUser.birthDate;
-          token.hasCompletedProfile = hasCompletedStudentProfile(dbUser);
+          token.hasCompletedProfile = hasCompletedProfile(dbUser);
         }
       } else if (user) {
         token.id = user.id;

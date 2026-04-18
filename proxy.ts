@@ -51,12 +51,7 @@ export default withAuth(
           resolvedRole = payload.role ?? resolvedRole;
           hasCompletedProfile = Boolean(payload.hasCompletedProfile);
 
-          if (
-            !hasCompletedProfile &&
-            resolvedRole !== "ADMIN" &&
-            resolvedRole !== "PARENT" &&
-            pathname !== "/welcome"
-          ) {
+          if (!hasCompletedProfile && pathname !== "/welcome") {
             return NextResponse.redirect(new URL("/welcome", req.url));
           }
 

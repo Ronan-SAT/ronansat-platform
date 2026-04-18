@@ -5,7 +5,7 @@ import AdminDashboardClient from "@/components/admin/AdminDashboardClient";
 import { authOptions } from "@/lib/authOptions";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
-import { hasCompletedStudentProfile } from "@/lib/userProfile";
+import { hasCompletedProfile } from "@/lib/userProfile";
 
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
@@ -25,7 +25,7 @@ export default async function AdminDashboardPage() {
     redirect("/parent/dashboard");
   }
 
-  if (!hasCompletedStudentProfile(user)) {
+  if (!hasCompletedProfile(user)) {
     redirect("/welcome");
   }
 
