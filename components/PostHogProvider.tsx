@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import posthog from "posthog-js";
 
@@ -12,14 +12,8 @@ type PostHogProviderProps = {
   children: React.ReactNode;
 };
 
-function buildCurrentUrl(pathname: string, searchParams: { toString(): string }) {
-  const query = searchParams.toString();
-  return query ? `${pathname}?${query}` : pathname;
-}
-
 export default function PostHogProvider({ children }: PostHogProviderProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const hasInitializedRef = useRef(false);
   const lastPageUrlRef = useRef<string | null>(null);
@@ -67,7 +61,7 @@ export default function PostHogProvider({ children }: PostHogProviderProps) {
       return;
     }
 
-    const currentUrl = buildCurrentUrl(pathname, searchParams);
+    const currentUrl = window.location.pathname + window.location.search;
 
     if (lastPageUrlRef.current === currentUrl) {
       return;
@@ -78,7 +72,7 @@ export default function PostHogProvider({ children }: PostHogProviderProps) {
     });
 
     lastPageUrlRef.current = currentUrl;
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   return children;
 }
