@@ -1,5 +1,5 @@
-import Loading from "@/components/Loading";
+import PrettyLoading from "@/components/PrettyLoading";
 
 export default function LoadingPreviewPage() {
-  return <Loading />;
+  return <PrettyLoading />;
 }

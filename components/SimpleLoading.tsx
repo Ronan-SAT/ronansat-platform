@@ -10,7 +10,7 @@ type Quote = {
   text: string;
 };
 
-type TestEntryLoadingProps = {
+type SimpleLoadingProps = {
   showQuote?: boolean;
 };
 
@@ -58,7 +58,7 @@ function getRandomQuoteIndex(excludeIndex?: number) {
   return nextIndex;
 }
 
-export default function TestEntryLoading({ showQuote = true }: TestEntryLoadingProps) {
+export default function SimpleLoading({ showQuote = true }: SimpleLoadingProps) {
   const [quoteIndex, setQuoteIndex] = useState<number | null>(showQuote ? null : 0);
   const [isVisible, setIsVisible] = useState(!showQuote);
   const timeoutRef = useRef<number | null>(null);

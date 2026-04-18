@@ -1,10 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import api from "@/lib/axios";
 import { CheckCircle, Save, Upload } from "lucide-react";
-import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 
 const panelHeaderClassName =
     "flex items-center gap-3 border-b-4 border-ink-fg bg-paper-bg px-5 py-4 text-ink-fg";
@@ -25,8 +23,8 @@ export default function CreateStudentForm() {
         e.preventDefault();
         setStudentMessage("");
 
-        if (!studentForm.imageUrl) {
-            setStudentMessage("Error: Please upload a student photo first.");
+        if (!studentForm.imageUrl.trim()) {
+            setStudentMessage("Error: Please enter a student photo URL first.");
             return;
         }
 
@@ -109,9 +107,21 @@ export default function CreateStudentForm() {
                     </div>
 
                     <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink-fg bg-paper-bg p-6 brutal-shadow-sm">
+                        <div className="mb-4 w-full">
+                            <label className={fieldLabelClassName}>Student Photo URL *</label>
+                            <input
+                                type="url"
+                                required
+                                value={studentForm.imageUrl}
+                                onChange={(e) => setStudentForm({ ...studentForm, imageUrl: e.target.value })}
+                                className="workbook-input text-sm"
+                                placeholder="https://example.com/student-photo.jpg"
+                            />
+                        </div>
+
                         {studentForm.imageUrl ? (
                             <div className="text-center">
-                                <Image src={studentForm.imageUrl} alt="Preview" width={800} height={800} unoptimized className="mx-auto mb-4 h-48 w-auto rounded-2xl border-2 border-ink-fg object-contain bg-surface-white p-2 brutal-shadow-sm" />
+                                <img src={studentForm.imageUrl} alt="Preview" className="mx-auto mb-4 h-48 w-auto rounded-2xl border-2 border-ink-fg object-contain bg-surface-white p-2 brutal-shadow-sm" />
                                 <button 
                                     type="button" 
                                     onClick={() => setStudentForm({...studentForm, imageUrl: ""})} 
@@ -121,27 +131,12 @@ export default function CreateStudentForm() {
                                 </button>
                             </div>
                         ) : (
-                            <>
-                            <CldUploadWidget     
-                                uploadPreset="ronan_sat_edTech"
-                                onSuccess={(result: CloudinaryUploadWidgetResults) => {
-                                    const info = typeof result.info === "string" ? undefined : result.info;
-                                    if (info?.secure_url) {
-                                        setStudentForm(prev => ({ ...prev, imageUrl: info.secure_url }));
-                                    }
-                                }}
-                            >
-                                {({ open }) => (
-                                    <div className="text-center cursor-pointer p-4" onClick={() => open?.()}>
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-ink-fg bg-accent-1 text-ink-fg brutal-shadow-sm transition-transform hover:-translate-y-0.5">
-                                            <Upload className="h-8 w-8" />
-                                        </div>
-                                        <p className="font-bold text-ink-fg">Click to choose a student photo</p>
-                                        <p className="mt-2 text-xs uppercase tracking-[0.14em] text-ink-fg/60">Powered by Cloudinary</p>
-                                    </div>
-                                )}
-                            </CldUploadWidget>
-                            </>
+                            <div className="text-center p-4">
+                                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-ink-fg bg-accent-1 text-ink-fg brutal-shadow-sm transition-transform hover:-translate-y-0.5">
+                                    <Upload className="h-8 w-8" />
+                                </div>
+                                <p className="font-bold text-ink-fg">Paste a student photo URL to preview it here</p>
+                            </div>
                         )}
                         
                     </div>

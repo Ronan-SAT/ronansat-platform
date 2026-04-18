@@ -1,13 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 import { clearClientCache } from "@/lib/clientCache";
 import { normalizeSectionName, VERBAL_SECTION } from "@/lib/sections";
 import { CheckCircle, Save, Upload, FileUp, ChevronDown } from "lucide-react";
-import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 
 type TestOption = {
     _id: string;
@@ -461,6 +459,13 @@ export default function CreateQuestionForm({ tests }: { tests: TestOption[] }) {
                             <label className={fieldLabelClassName}>Question Image / Chart</label>
                             <div>
                             <label className={fieldLabelClassName}>Visual Reference</label>
+                            <input
+                                type="url"
+                                value={questionForm.imageUrl}
+                                onChange={(e) => setQuestionForm({ ...questionForm, imageUrl: e.target.value })}
+                                placeholder="https://example.com/chart.png"
+                                className={`${workbookInputClassName} mb-3`}
+                            />
                             
                             {hasTable && !hasRealImage && (
                                 <div className="mb-3 rounded-2xl border-2 border-ink-fg bg-primary p-4 text-ink-fg brutal-shadow-sm">
@@ -482,7 +487,7 @@ export default function CreateQuestionForm({ tests }: { tests: TestOption[] }) {
                             <div className={`rounded-2xl border-2 p-3 brutal-shadow-sm ${needsImage ? 'border-ink-fg bg-accent-3 text-white' : 'border-ink-fg bg-paper-bg text-ink-fg'}`}>
                                 {hasRealImage ? (
                                     <div className="relative">
-                                        <Image src={questionForm.imageUrl} alt="Question preview" width={1200} height={800} unoptimized className="mx-auto max-h-40 w-auto rounded-2xl border-2 border-ink-fg bg-surface-white p-2" />
+                                        <img src={questionForm.imageUrl} alt="Question preview" className="mx-auto max-h-40 w-auto rounded-2xl border-2 border-ink-fg bg-surface-white p-2" />
                                         <button 
                                             type="button" 
                                             onClick={() => setQuestionForm({...questionForm, imageUrl: ""})} 
@@ -495,38 +500,18 @@ export default function CreateQuestionForm({ tests }: { tests: TestOption[] }) {
                                     <>
                                         {needsImage && (
                                             <p className="mb-2 text-center text-sm font-bold animate-pulse">
-                                                A chart or graphic is expected here. Please upload the image.
+                                                A chart or graphic is expected here. Please add the image URL.
                                             </p>
                                         )}
-                                        
-                                        <CldUploadWidget
-                                            uploadPreset="ronan_sat_edTech"
-                                            onSuccess={(result: CloudinaryUploadWidgetResults) => {
-                                                const info = typeof result.info === "string" ? undefined : result.info;
-                                                if (result.event === "success" && info?.secure_url) {
-                                                    setQuestionForm(prev => ({ ...prev, imageUrl: info.secure_url }));
-                                                    document.body.style.overflow = "auto";
-                                                }
-                                            }}
-                                            onClose={() => {
-                                                document.body.style.overflow = "auto";
-                                            }}
-                                            >
-                                                {({ open }) => (
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={(e) => { e.preventDefault(); open(); }}
-                                                        className={`flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-fg bg-surface-white font-bold transition-all workbook-press ${hasTable ? 'py-2 text-xs' : 'py-3 text-sm'} ${needsImage ? 'text-accent-3' : 'text-ink-fg'}`}
-                                                    >
-                                                        <Upload className="h-5 w-5" /> 
-                                                        {needsImage 
-                                                            ? "Upload the required chart image" 
-                                                            : hasTable 
-                                                                ? "Optional: upload another image anyway" 
-                                                                : "Upload a chart or figure (optional)"}
-                                                    </button>
-                                                )}
-                                        </CldUploadWidget>
+
+                                        <div className={`flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-fg bg-surface-white font-bold transition-all ${hasTable ? 'py-2 text-xs' : 'py-3 text-sm'} ${needsImage ? 'text-accent-3' : 'text-ink-fg'}`}>
+                                            <Upload className="h-5 w-5" />
+                                            {needsImage
+                                                ? "Paste the required chart image URL"
+                                                : hasTable
+                                                    ? "Optional: add another image URL"
+                                                    : "Optional: add a chart or figure URL"}
+                                        </div>
                                     </>
                                 )}
                             </div>

@@ -192,22 +192,17 @@ const ADMIN_ITEMS: NavItemConfig[] = [
 export default function Navbar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const isReady = status !== "loading" && status !== "unauthenticated" && !!session;
+  const isHiddenRoute = pathname.startsWith("/test/") || pathname.startsWith("/auth");
+  const isParent = session?.user.role === "PARENT";
+  const isAdmin = session?.user.role === "ADMIN";
+  const homeHref = isParent ? "/parent/dashboard" : "/dashboard";
+  const navItems = isAdmin ? ADMIN_ITEMS : isParent ? PARENT_ITEMS : STUDENT_ITEMS;
+  const displayName = session?.user.name || session?.user.email?.split("@")[0] || "Scholar";
 
-  if (
-    status === "loading" ||
-    status === "unauthenticated" ||
-    !session ||
-    pathname.startsWith("/test/") ||
-    pathname.startsWith("/auth")
-  ) {
+  if (!isReady || isHiddenRoute) {
     return null;
   }
-
-  const isParent = session.user.role === "PARENT";
-  const isAdmin = session.user.role === "ADMIN";
-  const homeHref = isAdmin ? "/admin" : "/dashboard";
-  const navItems = isAdmin ? ADMIN_ITEMS : isParent ? PARENT_ITEMS : STUDENT_ITEMS;
-  const displayName = session.user.name || session.user.email?.split("@")[0] || "Scholar";
 
   return (
     <>
@@ -285,14 +280,14 @@ function NavItem({
   return (
     <Link
       href={item.href}
-        className={[
-          active ? "border-4 border-ink-fg brutal-shadow-sm workbook-press" : "border-2 border-ink-fg brutal-shadow-sm workbook-press",
-          compact
-            ? "flex min-w-[4.75rem] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2.5 text-center sm:min-w-[5.75rem] sm:px-3 sm:py-3"
-            : "flex items-center gap-3 rounded-2xl px-3.5 py-2.5",
-          active ? "bg-paper-bg text-ink-fg" : "bg-surface-white text-ink-fg",
-        ].join(" ")}
-      >
+      className={[
+        active ? "border-4 border-ink-fg brutal-shadow-sm workbook-press" : "border-2 border-ink-fg brutal-shadow-sm workbook-press",
+        compact
+          ? "flex min-w-[4.75rem] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2.5 text-center sm:min-w-[5.75rem] sm:px-3 sm:py-3"
+          : "flex items-center gap-3 rounded-2xl px-3.5 py-2.5",
+        active ? "bg-paper-bg text-ink-fg" : "bg-surface-white text-ink-fg",
+      ].join(" ")}
+    >
       <Icon className={compact ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : "h-[1.15rem] w-[1.15rem]"} />
       <div className={compact ? "space-y-0.5" : "min-w-0"}>
         <p className={compact ? "text-[0.62rem] font-bold uppercase tracking-[0.14em] sm:text-[0.68rem] sm:tracking-[0.16em]" : "font-display text-[1.15rem] font-bold leading-none tracking-tight"}>

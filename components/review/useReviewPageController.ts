@@ -34,12 +34,12 @@ export function useReviewPageController() {
   const [loadingExplanations, setLoadingExplanations] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    fetchDashboardUserResults(undefined, { view: "detail" }).then((fetchedResults: any) => {
-      const nextResults = fetchedResults as ReviewResult[];
+    fetchDashboardUserResults(undefined, { view: "detail" }).then((fetchedResults) => {
+      const nextResults = fetchedResults as unknown as ReviewResult[];
       initialResultsCacheRef.current = nextResults;
       setResults(nextResults);
       setLoading(false);
-      
+
       if (nextResults.length > 0) {
         setClientCache(REVIEW_RESULTS_CACHE_KEY, nextResults);
       }

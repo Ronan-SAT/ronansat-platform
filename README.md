@@ -1,6 +1,6 @@
 # Bluebook Main
 
-SAT/Bluebook practice platform built with `Next.js 16`, `React 19`, `MongoDB`, `NextAuth`, `Redis`, `Gemini`, and supporting services such as Gmail SMTP, Google OAuth, and Cloudinary.
+SAT/Bluebook practice platform built with `Next.js 16`, `React 19`, `MongoDB`, `NextAuth`, `Gemini`, and supporting services such as Gmail SMTP and Google OAuth.
 
 This README is intended to help a new contributor:
 
@@ -22,7 +22,6 @@ Main features currently present in the repo:
 - AI chat for question explanations through Gemini
 - parent verification via email
 - leaderboard / hall of fame
-- Redis-backed caching
 
 Default entry flow:
 
@@ -36,12 +35,9 @@ Default entry flow:
 - `TypeScript`
 - `MongoDB + Mongoose`
 - `NextAuth`
-- `Redis`
 - `Google Gemini API`
 - `Nodemailer (Gmail SMTP)`
-- `Cloudinary`
 - `Ant Design`
-- `Sentry`
 
 ## 3. Prerequisites
 
@@ -49,15 +45,27 @@ Recommended local environment:
 
 - `Node.js 20 LTS` or newer
 - `bun`
-- a MongoDB instance
-- a Redis instance
+- a local MongoDB Community Server instance
+
+macOS prerequisites:
+
+```bash
+brew install bun
+brew tap mongodb/brew
+brew install mongodb/brew/mongodb-community
+```
+
+Windows prerequisites:
+
+1. Install `bun` from `https://bun.sh/docs/installation`.
+2. Install MongoDB Community Server from `https://www.mongodb.com/try/download/community` and keep the Windows Service option enabled during setup.
+3. Install MongoDB Community Server from `https://www.mongodb.com/try/download/community` and keep the Windows Service option enabled during setup.
 
 Optional services for full functionality:
 
 - a Gmail account with an App Password for email sending
 - a Google OAuth app
 - a Gemini API key
-- a Cloudinary account
 
 This repo is now set up around `bun`:
 
@@ -77,27 +85,44 @@ bun install
 
 Fastest path to a working local setup:
 
+Get `.env.keys` from a trusted teammate, then run:
+
 ```bash
 bun install
-cp .env.example .env.local
+bun run db
 bun run dev
 ```
 
-The current workspace already has a populated `.env.local`, so on this machine `bun run dev` is ready to use.
+The committed `.env.development` file is encrypted. `bun run dev` now expects the matching local `.env.keys` file, plus an optional `.env.local` for personal overrides.
+
+By default, `bun run dev` points the app at a local MongoDB database at `mongodb://127.0.0.1:27017/ronansat-local`.
+
+On first run, if that local database is reachable but empty, `bun run db` automatically copies the latest remote MongoDB data into it.
+
+If you want to refresh that local database from the shared remote MongoDB before startup, run:
+
+```bash
+bun run db -- --fetch
+bun run dev
+```
 
 ## 6. Fastest local setup
 
-If you only want to boot the app and start developing, create a `.env.local` file with at least:
+If you only want to boot the app and start developing, get the team `.env.keys` file first. Then create a `.env.local` only if you need personal MongoDB overrides.
+
+Typical `.env.local` override example:
 
 ```env
-MONGODB_URI=<mongodb connection string>
+LOCAL_MONGODB_URI=mongodb://127.0.0.1:27017/ronansat-local
+REMOTE_MONGODB_URI=<mongodb connection string>
 NEXTAUTH_SECRET=<long random secret>
-REDIS_URL=redis://127.0.0.1:6379
 ```
 
 Then run:
 
 ```bash
+bun run db
+bun run db -- --stop
 bun run dev
 ```
 
@@ -109,37 +134,81 @@ http://localhost:3000
 
 Important notes:
 
-- MongoDB is required; the app reads `lib/mongodb.ts` during startup
+- `bun run db` starts the local MongoDB service for the `LOCAL_MONGODB_URI` target when the service is installed but not already running
+- `bun run db -- --stop` stops the local MongoDB service for the `LOCAL_MONGODB_URI` target
+- if the local database is empty on first run, `bun run db` automatically copies the current remote MongoDB data into it
+- `bun run db -- --fetch` forces a fresh copy into the local database before you run the app
+- MongoDB is required; `bun run dev` rewrites `MONGODB_URI` to `LOCAL_MONGODB_URI` before startup so the app uses a local database by default
 - `NEXTAUTH_SECRET` is required for auth to work reliably
-- Redis should be available because several services read and write cache directly
 
 ## 7. Environment variables
 
-The repo now includes a committed `.env.example`. Copy it to `.env.local` or `.env` for local development, then fill in the real values.
+The repo now includes a committed `.env.example` for reference and a committed encrypted `.env.development` for shared development values.
+
+This repo uses an encrypted shared development env with `dotenvx`:
+
+- commit `.env.development` as the team-shared encrypted file
+- commit `.env.production` when you want a separately encrypted production file
+- keep `.env.keys` local and never commit it
+- keep `.env.local` for personal overrides on top of the shared development values
+- prefer `LOCAL_MONGODB_URI` for local dev and `REMOTE_MONGODB_URI` only for explicit syncs
+
+Run the app in development with the encrypted shared env loaded through `dotenvx`:
+
+```bash
+bun run db
+bun run db -- --stop
+bun run dev
+```
+
+Refresh the local MongoDB from the remote source before booting:
+
+```bash
+bun run db -- --fetch
+bun run dev
+```
+
+Production build and start use `.env.production`:
+
+```bash
+bun run build
+bun run start
+```
+
+To update the shared encrypted development env:
+
+```bash
+./node_modules/.bin/dotenvx decrypt -f .env.development
+# edit .env.development
+./node_modules/.bin/dotenvx encrypt -f .env.development
+```
+
+You can distribute the encrypted `.env.development` through git, and distribute the matching `.env.keys` to trusted developers through a separate secure channel.
+
+`bun run db`, `bun run dev`, `bun run build`, `bun run start`, and `bun run seed` all load env through `dotenvx`. Development commands use `.env.development` plus optional `.env.local` overrides, while production build and start use `.env.production`. The deployed production server runtime decrypts `.env.production` on startup with `DOTENV_PRIVATE_KEY_PRODUCTION`. `bun run db` uses `REMOTE_MONGODB_URI` or the shared `MONGODB_URI` as the fetch source when a first-run bootstrap or `--fetch` is needed, and `bun run dev` points the app itself at `LOCAL_MONGODB_URI`.
 
 Environment variables used by the codebase:
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `MONGODB_URI` | Yes | MongoDB connection |
+| `LOCAL_MONGODB_URI` | For local dev | Local MongoDB target used by `bun run dev` |
+| `REMOTE_MONGODB_URI` | Optional | Explicit remote MongoDB source for `bun run db -- --fetch` |
 | `NEXTAUTH_SECRET` | Yes | NextAuth session/token secret |
-| `REDIS_URL` | Strongly recommended | Cache for tests, questions, users, leaderboard |
 | `GEMINI_API_KEY` | For AI chat | `/api/chat` |
 | `EMAIL_USER` | For email features | Forgot password, parent verification |
 | `EMAIL_PASS` | For email features | Gmail App Password for SMTP |
 | `EMAIL_FROM_NAME` | Optional | Sender name for emails |
 | `GOOGLE_CLIENT_ID` | For Google login | NextAuth Google provider |
 | `GOOGLE_CLIENT_SECRET` | For Google login | NextAuth Google provider |
-| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | For Cloudinary image flows | Client-side Cloudinary config |
 | `NEXT_PUBLIC_DESMOS_URL` | For Desmos-related UI | Public frontend URL |
 
 Example `.env.local`:
 
 ```env
-MONGODB_URI=mongodb://127.0.0.1:27017/bluebook-main
+LOCAL_MONGODB_URI=mongodb://127.0.0.1:27017/ronansat-local
+REMOTE_MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db-name>?retryWrites=true&w=majority
 NEXTAUTH_SECRET=replace-with-a-long-random-secret
-REDIS_URL=redis://127.0.0.1:6379
-
 GEMINI_API_KEY=
 
 EMAIL_USER=
@@ -149,7 +218,6 @@ EMAIL_FROM_NAME=Bluebook Support
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
 NEXT_PUBLIC_DESMOS_URL=
 ```
 
@@ -182,28 +250,6 @@ Example:
 
 ```env
 NEXTAUTH_SECRET=this-should-be-a-long-random-secret-value
-```
-
-### 7.3 Redis
-
-Redis is used directly by multiple services, including leaderboard, question, test, and user flows.
-
-Local example:
-
-```env
-REDIS_URL=redis://127.0.0.1:6379
-```
-
-If you do not already have Redis, you can:
-
-- run it with Docker
-- install it locally
-- point to a managed Redis instance
-
-Docker example:
-
-```bash
-docker run -d --name bluebook-redis -p 6379:6379 redis
 ```
 
 ### 7.4 Gmail SMTP
@@ -257,14 +303,6 @@ GEMINI_API_KEY=
 
 If this variable is empty, the chat route will return `Gemini API key not configured`.
 
-### 7.7 Cloudinary
-
-If your current work depends on Cloudinary upload/display flows, configure:
-
-```env
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
-```
-
 ## 9. Running the project
 
 ### Development
@@ -280,7 +318,11 @@ bun run build
 bun run start
 ```
 
-Before deploying, make sure the Vercel project environment has the same required secrets as your app build, especially:
+Before deploying with encrypted env files, set `DOTENV_PRIVATE_KEY_PRODUCTION` in Vercel so the build and the deployed server runtime can decrypt the committed `.env.production` file.
+
+For local development with encrypted files, keep `DOTENV_PRIVATE_KEY_DEVELOPMENT` in your local `.env.keys` file.
+
+If you are not using the encrypted-file workflow, make sure the Vercel project environment has the same required secrets as your app build, especially:
 
 - `MONGODB_URI`
 - `NEXTAUTH_SECRET`
@@ -289,9 +331,7 @@ Before deploying, make sure the Vercel project environment has the same required
 - `EMAIL_USER`
 - `EMAIL_PASS`
 - `GEMINI_API_KEY`
-- `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
 
-For production auth callbacks, set the deployed site URL as `NEXTAUTH_URL` in Vercel too.
 
 ### Lint
 
@@ -369,7 +409,7 @@ After configuring the environment and running `bun run dev`, verify in this orde
 | `lib/authOptions.ts` | NextAuth configuration |
 | `lib/mongodb.ts` | MongoDB connection |
 | `lib/email.ts` | Gmail SMTP email sending |
-| `next.config.ts` | Next.js config with Sentry and image settings |
+| `next.config.ts` | Next.js config with image settings |
 | `seed.ts` | Basic sample data seed |
 | `parse_and_seed.ts` | Larger sample import script |
 | `question_bank/` | Question content/source data |
@@ -381,10 +421,12 @@ After configuring the environment and running `bun run dev`, verify in this orde
 Cause:
 
 - `.env.local` is missing
+- `.env.keys` is missing, so `.env.development` could not be decrypted
 - `MONGODB_URI` is missing or invalid
 
 Fix:
 
+- make sure `.env.keys` is present
 - create `.env.local`
 - check the MongoDB connection string
 
@@ -411,24 +453,17 @@ Check:
 
 - `GEMINI_API_KEY`
 
-### Redis connection errors on some routes
-
-Check:
-
-- whether Redis is running
-- whether `REDIS_URL` is correct
-
 ## 15. Recommended onboarding order
 
 If you want the fastest path to a working local environment:
 
 1. Run `bun install`.
-2. Create `.env.local`.
-3. Fill in `MONGODB_URI`, `NEXTAUTH_SECRET`, and `REDIS_URL`.
+2. Get `.env.keys` from a trusted teammate.
+3. Create `.env.local` only if you need local overrides.
 4. Run `bun run dev`.
 5. Run `bun run seed`.
 6. Confirm sign-up and login work.
-7. Enable email, Google login, Gemini, and Cloudinary only when needed.
+7. Enable email, Google login, and Gemini only when needed.
 
 ## 16. Additional notes
 
