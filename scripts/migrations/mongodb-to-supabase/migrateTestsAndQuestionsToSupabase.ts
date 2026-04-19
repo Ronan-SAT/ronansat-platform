@@ -41,6 +41,12 @@ type MigratedSection = {
   module_number: number | null;
 };
 
+type ExistingQuestionRow = {
+  test_sections: {
+    test_id: string;
+  } | null;
+};
+
 type MigrationFailure = {
   legacyQuestionId: string;
   legacyTestId: string;
@@ -305,6 +311,7 @@ async function migrateTestWithQuestions(test: LeanTest, questions: LeanQuestion[
 async function main() {
   const mongoUri = getRequiredEnv("MONGODB_URI");
   const mongoClient = new MongoClient(mongoUri);
+  const supabase = createSupabaseAdminClient();
   await mongoClient.connect();
 
   try {
@@ -321,11 +328,53 @@ async function main() {
       questionsByTestId.set(key, existing);
     }
 
+    const { data: existingTests, error: existingTestsError } = await supabase.from("tests").select("id,legacy_mongo_id");
+    if (existingTestsError || !existingTests) {
+      throw new Error(`Failed to load existing tests: ${existingTestsError?.message ?? "unknown error"}`);
+    }
+
+    const { data: existingQuestions, error: existingQuestionsError } = await supabase
+      .from("questions")
+      .select(
+        `
+          id,
+          test_sections!inner (
+            test_id
+          )
+        `
+      );
+
+    if (existingQuestionsError || !existingQuestions) {
+      throw new Error(`Failed to load existing migrated question counts: ${existingQuestionsError?.message ?? "unknown error"}`);
+    }
+
+    const existingTestIdByLegacyId = new Map(existingTests.filter((test) => test.legacy_mongo_id).map((test) => [test.legacy_mongo_id!, test.id]));
+    const importedQuestionCountsByTestId = new Map<string, number>();
+
+    for (const question of existingQuestions as ExistingQuestionRow[]) {
+      const testId = question.test_sections?.test_id;
+      if (!testId) {
+        continue;
+      }
+
+      importedQuestionCountsByTestId.set(testId, (importedQuestionCountsByTestId.get(testId) ?? 0) + 1);
+    }
+
     let migratedTests = 0;
     let migratedQuestions = 0;
+    let skippedCompletedTests = 0;
 
     for (const test of tests) {
       const relatedQuestions = questionsByTestId.get(test._id.toString()) ?? [];
+      const existingTestId = existingTestIdByLegacyId.get(test._id.toString());
+      const importedQuestionCount = existingTestId ? importedQuestionCountsByTestId.get(existingTestId) ?? 0 : 0;
+
+      if (existingTestId && importedQuestionCount === relatedQuestions.length) {
+        skippedCompletedTests += 1;
+        console.log(`Skipping already migrated test ${test._id.toString()} with ${importedQuestionCount} questions.`);
+        continue;
+      }
+
       const result = await migrateTestWithQuestions(test, relatedQuestions, failures);
       migratedTests += 1;
       migratedQuestions += result.migratedQuestions;
@@ -333,6 +382,7 @@ async function main() {
     }
 
     console.log(`Finished migrating ${migratedTests} tests and ${migratedQuestions} questions.`);
+    console.log(`Skipped ${skippedCompletedTests} already migrated test(s).`);
 
     if (failures.length > 0) {
       console.warn(`Skipped ${failures.length} malformed question(s).`);

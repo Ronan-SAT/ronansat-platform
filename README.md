@@ -338,7 +338,11 @@ For local development with encrypted files, keep `DOTENV_PRIVATE_KEY_DEVELOPMENT
 
 If you are not using the encrypted-file workflow, make sure the Vercel project environment has the same required secrets as your app build, especially:
 
+- `DOTENV_PRIVATE_KEY_PRODUCTION` when the app reads the committed encrypted `.env.production`
 - `MONGODB_URI`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
