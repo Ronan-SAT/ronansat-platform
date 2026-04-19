@@ -36,6 +36,9 @@ jobs:
         with:
           version: 2.92.1
 
+      - name: Start local Supabase stack
+        run: supabase start
+
       - name: Validate migrations on a fresh local database
         run: supabase db reset
 
