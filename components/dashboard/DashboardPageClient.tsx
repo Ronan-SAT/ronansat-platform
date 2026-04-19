@@ -206,7 +206,6 @@ export default function DashboardPageClient() {
 function DashboardPageSkeleton() {
   return (
     <div className="min-h-screen bg-paper-bg pb-12">
-      <InitialTabBootReady />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <section className="workbook-panel-muted mb-6 overflow-hidden">
           <div className="border-b-4 border-ink-fg bg-paper-bg px-6 py-5">
