@@ -48,4 +48,17 @@ jobs:
 
       - run: supabase start
       - run: supabase db lint
-      - run: supabase db reset
+      - name: Reset local Supabase with retry
+        run: |
+          for attempt in 1 2 3; do
+            if supabase db reset; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            echo "supabase db reset failed, retrying..."
+            sleep 10
+          done
