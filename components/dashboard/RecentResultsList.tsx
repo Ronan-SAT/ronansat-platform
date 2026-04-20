@@ -1,27 +1,29 @@
 import Link from "next/link";
 
-import { getDisplayScore, getResultDateValue, getResultTimestamp } from "@/components/dashboard/dashboardResultUtils";
-import type { UserResultSummary } from "@/types/testLibrary";
+import type { DashboardRecentResult } from "@/types/dashboard";
 
 type RecentResultsListProps = {
-  results: UserResultSummary[];
+  results: DashboardRecentResult[];
 };
 
-function getDisplayDate(result: UserResultSummary) {
-  const rawDate = getResultDateValue(result);
-  if (!rawDate) {
-    return "No date";
-  }
-
-  return new Date(rawDate).toLocaleDateString(undefined, {
+function getDisplayDate(result: DashboardRecentResult) {
+  return new Date(result.createdAt).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
+function getDisplayScore(result: DashboardRecentResult) {
+  if (result.isSectional) {
+    return result.score || result.totalScore || 0;
+  }
+
+  return Math.max(400, result.totalScore || result.score || 0);
+}
+
 export default function RecentResultsList({ results }: RecentResultsListProps) {
-  const recentResults = [...results].sort((left, right) => getResultTimestamp(right) - getResultTimestamp(left)).slice(0, 5);
+  const recentResults = results;
 
   return (
     <section className="workbook-panel overflow-hidden">
@@ -46,7 +48,7 @@ export default function RecentResultsList({ results }: RecentResultsListProps) {
 
               return (
                 <Link
-                  key={result._id || `${result.testId}-${result.createdAt}`}
+                  key={result._id}
                   href={href}
                   className="flex items-center justify-between gap-4 rounded-2xl border-2 border-ink-fg bg-surface-white px-4 py-4 brutal-shadow-sm workbook-press"
                 >

@@ -1,5 +1,6 @@
 import { API_PATHS } from "@/lib/apiPaths";
 import api from "@/lib/axios";
+import { getDefaultReviewReasonCatalog } from "@/lib/reviewReasonCatalog";
 import type { ReviewErrorLogPage, ReviewResult } from "@/types/review";
 import type { ReviewReasonItem } from "@/types/reviewReason";
 
@@ -55,8 +56,23 @@ export async function fetchQuestionExplanation(questionId: string) {
 }
 
 export async function fetchReviewReasonCatalog() {
-  const res = await api.get(API_PATHS.USER_REVIEW_REASONS);
-  return (res.data.reasons || []) as ReviewReasonItem[];
+  try {
+    const res = await api.get(API_PATHS.USER_REVIEW_REASONS);
+    return (res.data.reasons || []) as ReviewReasonItem[];
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "response" in error) {
+      const response = (error as { response?: { status?: number } }).response;
+      if (response?.status === 401) {
+        return getDefaultReviewReasonCatalog();
+      }
+    }
+
+    if (error instanceof Error && error.message.includes("401")) {
+      return getDefaultReviewReasonCatalog();
+    }
+
+    throw error;
+  }
 }
 
 export async function saveReviewReasonCatalog(reasons: ReviewReasonItem[]) {

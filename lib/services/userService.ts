@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { DashboardOverview } from "@/types/dashboard";
 
 export const userService = {
   async getUserProfile(userId: string) {
@@ -66,5 +67,18 @@ export const userService = {
       testsTaken: testsTaken ?? 0,
       highestScore: bestAttempt?.score ?? 0,
     };
+  },
+
+  async getDashboardOverview(userId: string) {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase.rpc("get_user_dashboard_overview", {
+      target_user_id: userId,
+    });
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Failed to load dashboard overview");
+    }
+
+    return data as DashboardOverview;
   },
 };

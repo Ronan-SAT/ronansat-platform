@@ -113,6 +113,13 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 - Pushes to `main` that include those migration changes should automatically push the linked schema state to the production Supabase project.
 - Production migration automation should rely on the GitHub `production` environment with `DOTENV_PRIVATE_KEY_PRODUCTION`, `SUPABASE_ACCESS_TOKEN`, and `SUPABASE_DB_PASSWORD` rather than hardcoded credentials.
 
+### 2026-04-20 Local Production Data Refresh
+
+- `bun run db -- --fetch` should now refresh both local MongoDB data and local Supabase data so developers can pull a current local snapshot with one command.
+- The Supabase portion should stay explicit and local-only: developers should authenticate the Supabase CLI with `supabase login`, then provide only `SUPABASE_DB_PASSWORD` and optional `SUPABASE_PROJECT_REF` locally.
+- The local Supabase refresh path should reset the local schema from committed migrations first, then import remote `public`, `auth`, and `storage` data from the linked production project.
+- After a successful local fetch, the repo should refresh a gitignored snapshot at `supabase/seeds/local-data.sql` so later local `supabase db reset` runs can restore fetched Supabase data without hitting production again.
+
 ### 2026-04-13 v0.1 Reset
 
 - `v0.1` should be treated as an app-wide redesign milestone, not a narrow landing-page port.
@@ -335,3 +342,10 @@ Ship `v0.1` as a whole-product redesign of the Ronan SAT app so the entire proje
 - The Gemini-backed question assistant was removed end-to-end, including `/api/chat`, the chat controller/service/model stack, the review chatbot component/hook, and the markdown renderer that existed only for AI responses.
 - Review still keeps normal stored question explanations through the existing explanation fields and routes; only the interactive AI follow-up layer was removed.
 - Contributor docs and dependency metadata now no longer advertise `GEMINI_API_KEY` or Gemini as part of the required app setup.
+
+### 2026-04-20 Dashboard SQL Aggregation
+
+- The student dashboard no longer derives its main stats panels from the generic `/api/results` payload; it now uses a dedicated SQL-backed overview route at `/api/user/dashboard`.
+- Supabase function `public.get_user_dashboard_overview(uuid)` returns a minimal JSON payload with only `userStats`, 30-day `activity`, top-5 `recentResults`, and 30-day full-test `trend` points.
+- Dashboard components now consume aggregated activity/trend/recent data directly, while full-length and sectional libraries still use the lightweight summary results payload for per-test retake and score state.
+- Future dashboard work should extend the overview RPC first instead of reintroducing answer-level payloads into the dashboard bootstrap path.

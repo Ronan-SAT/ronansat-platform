@@ -1,4 +1,4 @@
-// Lấy stats của user
+// User-facing controller methods.
 
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth/server";
@@ -8,13 +8,13 @@ export const userController = {
     async getUserStats(req?: Request) {
         try {
             void req;
-            // ktra đã đăng nhập chưa
+            // Verify the user is authenticated.
             const session = await getServerSession();
             if (!session) {
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
 
-            // truyền vào id user và giao việc cho service
+            // Delegate the lookup to the shared service layer.
             const stats = await userService.getUserStats(session.user.id);
             return NextResponse.json(stats);
         } catch (error: unknown) {
@@ -22,6 +22,22 @@ export const userController = {
             if (error instanceof Error && error.message === "User not found") {
                 return NextResponse.json({ error: error.message }, { status: 404 });
             }
+            return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        }
+    },
+
+    async getDashboardOverview(req?: Request) {
+        try {
+            void req;
+            const session = await getServerSession();
+            if (!session) {
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
+
+            const overview = await userService.getDashboardOverview(session.user.id);
+            return NextResponse.json(overview);
+        } catch (error: unknown) {
+            console.error("Error fetching dashboard overview:", error);
             return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
         }
     }

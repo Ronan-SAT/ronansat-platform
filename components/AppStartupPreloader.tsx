@@ -23,16 +23,16 @@ export default function AppStartupPreloader() {
   const { data: session, status } = useSession();
 
   useEffect(() => {
+    if (!canPreloadForPath(pathname)) {
+      markInitialTabPreloadReady();
+      return;
+    }
+
     if (status === "loading") {
       return;
     }
 
     if (status !== "authenticated" || !session?.user?.id || !session.user.hasCompletedProfile) {
-      markInitialTabPreloadReady();
-      return;
-    }
-
-    if (!canPreloadForPath(pathname)) {
       markInitialTabPreloadReady();
       return;
     }

@@ -38,9 +38,22 @@ type VocabBoardContextValue = {
 
 const VocabBoardContext = createContext<VocabBoardContextValue | null>(null);
 
+function isResponseStatusError(error: unknown, status: number) {
+  return error instanceof Error && error.message === `Request failed with status ${status}`;
+}
+
+function createResponseStatusError(status: number) {
+  return new Error(`Request failed with status ${status}`);
+}
+
+async function wait(ms: number) {
+  await new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 async function persistBoardToServer(nextBoard: VocabBoardState) {
   const response = await fetch(API_PATHS.USER_VOCAB_BOARD, {
     method: "PUT",
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
     },
@@ -48,8 +61,23 @@ async function persistBoardToServer(nextBoard: VocabBoardState) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to save vocab board: ${response.status}`);
+    throw createResponseStatusError(response.status);
   }
+}
+
+async function loadBoardFromServer() {
+  const response = await fetch(API_PATHS.USER_VOCAB_BOARD, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+
+  if (!response.ok) {
+    throw createResponseStatusError(response.status);
+  }
+
+  const payload = (await response.json()) as { board?: unknown };
+  return normalizeVocabBoard(payload.board);
 }
 
 export function VocabBoardProvider({ children }: { children: ReactNode }) {
@@ -87,17 +115,25 @@ export function VocabBoardProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const response = await fetch(API_PATHS.USER_VOCAB_BOARD, {
-          method: "GET",
-          cache: "no-store",
-        });
+        let serverBoard: VocabBoardState | null = null;
 
-        if (!response.ok) {
-          throw new Error(`Failed to load vocab board: ${response.status}`);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            serverBoard = await loadBoardFromServer();
+            break;
+          } catch (error) {
+            if (!isResponseStatusError(error, 401) || attempt === 2) {
+              throw error;
+            }
+
+            await wait(250 * (attempt + 1));
+          }
         }
 
-        const payload = (await response.json()) as { board?: unknown };
-        const serverBoard = normalizeVocabBoard(payload.board);
+        if (!serverBoard) {
+          throw createResponseStatusError(401);
+        }
+
         const localBoard = readBoardFromLocalStorage(storageKey);
         const nextBoard = isVocabBoardEmpty(serverBoard) && !isVocabBoardEmpty(localBoard) ? localBoard : serverBoard;
 
@@ -112,8 +148,12 @@ export function VocabBoardProvider({ children }: { children: ReactNode }) {
           window.localStorage.removeItem(storageKey);
         }
       } catch (error) {
-        console.error("Failed to hydrate vocab board from server:", error);
         const localBoard = readBoardFromLocalStorage(storageKey);
+
+        if (!isResponseStatusError(error, 401)) {
+          console.error("Failed to hydrate vocab board from server:", error);
+        }
+
         if (!cancelled) {
           setBoard(localBoard);
           lastPersistedRef.current = JSON.stringify(localBoard);
@@ -149,8 +189,14 @@ export function VocabBoardProvider({ children }: { children: ReactNode }) {
       void persistBoardToServer(board)
         .then(() => {
           lastPersistedRef.current = serializedBoard;
+          window.localStorage.removeItem(storageKey);
         })
         .catch((error) => {
+          if (isResponseStatusError(error, 401)) {
+            window.localStorage.setItem(storageKey, serializedBoard);
+            return;
+          }
+
           console.error("Failed to persist vocab board:", error);
         });
     }, 500);

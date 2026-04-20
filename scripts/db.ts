@@ -1,3 +1,7 @@
+import { createReadStream, readFileSync } from "node:fs";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import process from "node:process";
 import { Collection, Document, MongoClient } from "mongodb";
@@ -9,6 +13,19 @@ const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 const WAIT_TIMEOUT_MS = 15000;
 const POLL_INTERVAL_MS = 500;
 const COPY_BATCH_SIZE = 500;
+const DEFAULT_SUPABASE_PROJECT_REF = "awzhqoxnyxyciaoejjno";
+const REMOTE_SUPABASE_SCHEMAS = ["public", "auth", "storage"];
+const LOCAL_SUPABASE_SNAPSHOT_DIR = join(process.cwd(), "supabase/seeds");
+const LOCAL_SUPABASE_SNAPSHOT_PATH = join(LOCAL_SUPABASE_SNAPSHOT_DIR, "local-data.sql");
+const REMOTE_SUPABASE_EXCLUDED_TABLES = [
+  "auth.schema_migrations",
+  "storage.migrations",
+  "storage.buckets_vectors",
+  "storage.vector_indexes",
+  "storage.buckets_analytics",
+  "storage.iceberg_namespaces",
+  "storage.iceberg_tables",
+];
 
 function shouldFetchDb(argv: string[]) {
   return argv.includes(FETCH_FLAG);
@@ -34,6 +51,27 @@ function parseMongoUri(uri: string) {
 
 function getRemoteMongoUri() {
   return process.env.REMOTE_MONGODB_URI?.trim() || process.env.MONGODB_URI?.trim() || "";
+}
+
+function getSupabaseProjectRef() {
+  return process.env.SUPABASE_PROJECT_REF?.trim() || DEFAULT_SUPABASE_PROJECT_REF;
+}
+
+function getSupabaseRemoteSyncConfig() {
+  return {
+    password: getRequiredEnv("SUPABASE_DB_PASSWORD"),
+    projectRef: getSupabaseProjectRef(),
+  };
+}
+
+function getRequiredEnv(name: string) {
+  const value = process.env[name]?.trim();
+
+  if (!value) {
+    throw new Error(`Missing ${name}. Add it to your local shell env or .env.local before using ${FETCH_FLAG}.`);
+  }
+
+  return value;
 }
 
 function assertLocalTarget(localUri: string) {
@@ -175,6 +213,183 @@ function runCommand(command: string, args: string[]) {
   });
 }
 
+function runCommandWithStdin(command: string, args: string[], inputFilePath: string) {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ["pipe", "inherit", "inherit"],
+      shell: false,
+    });
+    const inputStream = createReadStream(inputFilePath);
+
+    child.on("error", reject);
+    inputStream.on("error", reject);
+    inputStream.pipe(child.stdin);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
+    });
+  });
+}
+
+function getSupabaseProjectId() {
+  const config = readFileSync(join(process.cwd(), "supabase/config.toml"), "utf8");
+  const match = config.match(/^project_id\s*=\s*"([^"]+)"/m);
+
+  if (!match) {
+    throw new Error("Could not read project_id from supabase/config.toml.");
+  }
+
+  return match[1];
+}
+
+function getSupabaseDbContainerName() {
+  return `supabase_db_${getSupabaseProjectId()}`;
+}
+
+async function resetLocalSupabaseDb() {
+  await runCommand("bunx", ["--bun", "supabase", "db", "reset", "--yes"]);
+}
+
+async function dumpRemoteSupabaseData(outputPath: string) {
+  const { password, projectRef } = getSupabaseRemoteSyncConfig();
+  const dumpArgs = [
+    "--bun",
+    "supabase",
+    "db",
+    "dump",
+    "--linked",
+    "-p",
+    password,
+    "--data-only",
+    "--use-copy",
+    "--file",
+    outputPath,
+    "--schema",
+    REMOTE_SUPABASE_SCHEMAS.join(","),
+  ];
+
+  for (const table of REMOTE_SUPABASE_EXCLUDED_TABLES) {
+    dumpArgs.push("--exclude", table);
+  }
+
+  try {
+    await runCommand("bunx", ["--bun", "supabase", "link", "--project-ref", projectRef, "--yes"]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to link the production Supabase project. Run \`supabase login\` first, then rerun \`bun run db -- --fetch\`. Original error: ${message}`,
+    );
+  }
+
+  await runCommand("bunx", dumpArgs);
+}
+
+async function dumpLocalSupabaseSnapshot() {
+  await mkdir(LOCAL_SUPABASE_SNAPSHOT_DIR, { recursive: true });
+
+  const dumpArgs = [
+    "--bun",
+    "supabase",
+    "db",
+    "dump",
+    "--local",
+    "--data-only",
+    "--use-copy",
+    "--file",
+    LOCAL_SUPABASE_SNAPSHOT_PATH,
+    "--schema",
+    REMOTE_SUPABASE_SCHEMAS.join(","),
+  ];
+
+  for (const table of REMOTE_SUPABASE_EXCLUDED_TABLES) {
+    dumpArgs.push("--exclude", table);
+  }
+
+  await runCommand("bunx", dumpArgs);
+}
+
+async function truncateLocalSupabaseData() {
+  const truncateScript = [
+    "DO $$",
+    "DECLARE table_list text;",
+    "BEGIN",
+    "  SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')",
+    "  INTO table_list",
+    "  FROM pg_tables",
+    `  WHERE schemaname = ANY (ARRAY['${REMOTE_SUPABASE_SCHEMAS.join("','")}'])`,
+    `    AND format('%I.%I', schemaname, tablename) <> ALL (ARRAY['${REMOTE_SUPABASE_EXCLUDED_TABLES.join("','")}']);`,
+    "",
+    "  IF table_list IS NOT NULL THEN",
+    "    EXECUTE 'TRUNCATE TABLE ' || table_list || ' CASCADE';",
+    "  END IF;",
+    "END $$;",
+  ].join("\n");
+
+  await runCommand("docker", [
+    "exec",
+    getSupabaseDbContainerName(),
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    "postgres",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    truncateScript,
+  ]);
+}
+
+async function restoreRemoteSupabaseData(dumpPath: string) {
+  await runCommandWithStdin(
+    "docker",
+    [
+      "exec",
+      "-i",
+      getSupabaseDbContainerName(),
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-f",
+      "-",
+    ],
+    dumpPath,
+  );
+}
+
+async function syncRemoteSupabaseToLocal() {
+  const { projectRef } = getSupabaseRemoteSyncConfig();
+
+  await rm(LOCAL_SUPABASE_SNAPSHOT_PATH, { force: true }).catch(() => undefined);
+  console.log("Resetting local Supabase schema before remote data sync...");
+  await resetLocalSupabaseDb();
+
+  const tempDir = await mkdtemp(join(tmpdir(), "ronansat-supabase-fetch-"));
+  const dumpPath = join(tempDir, "remote-data.sql");
+
+  try {
+    console.log(`Dumping production Supabase data from ${projectRef}...`);
+    await dumpRemoteSupabaseData(dumpPath);
+    console.log("Clearing local Supabase data...");
+    await truncateLocalSupabaseData();
+    console.log("Restoring production Supabase data into local Supabase...");
+    await restoreRemoteSupabaseData(dumpPath);
+    console.log(`Dumping local Supabase snapshot to ${LOCAL_SUPABASE_SNAPSHOT_PATH}...`);
+    await dumpLocalSupabaseSnapshot();
+    console.log("Local Supabase is synced from production.");
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 async function startSupabaseService() {
   await runCommand("bunx", ["--bun", "supabase", "start"]);
 }
@@ -269,6 +484,7 @@ async function main() {
   }
 
   if (fetchDb) {
+    await syncRemoteSupabaseToLocal();
     await syncRemoteDbToLocal(localUri);
     return;
   }

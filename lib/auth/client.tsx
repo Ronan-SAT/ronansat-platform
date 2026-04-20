@@ -3,7 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
-import { type AppSession, buildAppSession } from "@/lib/auth/session";
+import { beginClientAuthSync, endClientAuthSync } from "@/lib/clientAuthSync";
+import { type AppSession } from "@/lib/auth/session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type SessionStatus = "loading" | "authenticated" | "unauthenticated";
@@ -29,6 +30,10 @@ type SignInResult = {
 
 const SessionContext = createContext<SessionContextValue | undefined>(undefined);
 
+async function wait(ms: number) {
+  await new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function getRedirectUrl(callbackUrl?: string) {
   if (!callbackUrl) {
     return `${window.location.origin}/auth/redirect`;
@@ -46,7 +51,27 @@ async function fetchBrowserSession(user: User | null) {
     return null;
   }
 
-  const response = await fetch("/api/user/profile-gate", { cache: "no-store" });
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    response = await fetch("/api/user/profile-gate", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (response.status !== 401) {
+      break;
+    }
+
+    if (attempt < 2) {
+      await wait(150 * (attempt + 1));
+    }
+  }
+
+  if (!response || response.status === 401) {
+    return null;
+  }
+
   if (!response.ok) {
     return {
       user: {
@@ -88,21 +113,30 @@ export function SessionProvider({ children, session }: { children: React.ReactNo
     const supabase = createSupabaseBrowserClient();
 
     const bootstrap = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const nextSession = await fetchBrowserSession(user);
-      setData(nextSession);
-      setStatus(nextSession ? "authenticated" : "unauthenticated");
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const nextSession = await fetchBrowserSession(user);
+        setData(nextSession);
+        setStatus(nextSession ? "authenticated" : "unauthenticated");
+      } finally {
+        endClientAuthSync();
+      }
     };
 
     void bootstrap();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, sessionState) => {
-      void fetchBrowserSession(sessionState?.user ?? null).then((nextSession) => {
-        setData(nextSession);
-        setStatus(nextSession ? "authenticated" : "unauthenticated");
-      });
+      beginClientAuthSync();
+      void fetchBrowserSession(sessionState?.user ?? null)
+        .then((nextSession) => {
+          setData(nextSession);
+          setStatus(nextSession ? "authenticated" : "unauthenticated");
+        })
+        .finally(() => {
+          endClientAuthSync();
+        });
     });
 
     return () => {

@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/client";
 
 import { getClientCache, setClientCache } from "@/lib/clientCache";
-import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
-import { preloadInitialAppData } from "@/lib/startupPreload";
+import { getCachedDashboardUserResults } from "@/lib/dashboardCache";
+import { preloadDashboardUserResults, preloadInitialAppData } from "@/lib/startupPreload";
 import {
   fetchTestsPage,
   getTestsClientCacheKey,
@@ -61,9 +61,6 @@ export function useFullLengthDashboardController() {
     }
   }, [router, status]);
 
-  // Cache key for the current user's result history.
-  const CACHE_USER_RESULTS = "dashboard:user-results";
-
   useEffect(() => {
     if (!session) {
       return;
@@ -73,36 +70,27 @@ export function useFullLengthDashboardController() {
     let cancelled = false;
 
     const loadUserResults = async () => {
-      await preloadInitialAppData({
+      void preloadInitialAppData({
         role: session.user.role,
         userId: session.user.id,
       });
 
-      if (cancelled) {
-        return;
-      }
-
-      // --- Read-through cache: serve instantly if results are already cached ---
-      const cachedResults = getClientCache<UserResultSummary[]>(CACHE_USER_RESULTS);
+      const cachedResults = getCachedDashboardUserResults();
 
       if (cachedResults !== undefined) {
-        // Cache hit — update state immediately without a network request.
         if (!cancelled) {
           setUserResults(cachedResults);
         }
         return;
       }
 
-      // Cache miss — fetch fresh data and persist it for subsequent mounts.
       try {
-        const nextResults = await fetchDashboardUserResults();
+        const nextResults = await preloadDashboardUserResults();
 
         if (cancelled) {
           return;
         }
 
-        // Write to cache before updating state so future re-mounts are instant.
-        setClientCache(CACHE_USER_RESULTS, nextResults);
         setUserResults(nextResults);
       } catch (error) {
         if (!cancelled) {
@@ -125,18 +113,26 @@ export function useFullLengthDashboardController() {
   }, [page, totalPages]);
 
   useEffect(() => {
+    if (status === "loading") {
+      return;
+    }
+
+    if (!session?.user?.id) {
+      setTestsLoading(false);
+      setTestsRefreshing(false);
+      return;
+    }
+
     let cancelled = false;
 
     const loadTests = async () => {
-      if (session?.user?.id) {
-        await preloadInitialAppData({
-          role: session.user.role,
-          userId: session.user.id,
-        });
+      await preloadInitialAppData({
+        role: session.user.role,
+        userId: session.user.id,
+      });
 
-        if (cancelled) {
-          return;
-        }
+      if (cancelled) {
+        return;
       }
 
       const filters = { selectedPeriod } as const;
@@ -180,7 +176,7 @@ export function useFullLengthDashboardController() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption]);
+  }, [page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption, status]);
 
   return {
     session,

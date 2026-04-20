@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/lib/auth/client";
 
 import { getClientCache, setClientCache } from "@/lib/clientCache";
-import { fetchDashboardUserResults } from "@/lib/services/dashboardService";
-import { preloadInitialAppData } from "@/lib/startupPreload";
+import { getCachedDashboardUserResults } from "@/lib/dashboardCache";
+import { preloadDashboardUserResults, preloadInitialAppData } from "@/lib/startupPreload";
 import {
   fetchTestsPage,
   getTestsClientCacheKey,
@@ -15,7 +15,6 @@ import type { CachedTestsPayload, SortOption, TestListItem, UserResultSummary } 
 export function useSectionalTestsController() {
   const { data: session, status } = useSession();
   const pageSize = 15;
-  const CACHE_USER_RESULTS = "dashboard:user-results";
   const initialTestsCacheRef = useRef<CachedTestsPayload | undefined>(undefined);
   const [hasHydratedClientCache, setHasHydratedClientCache] = useState(false);
   const [tests, setTests] = useState<TestListItem[]>([]);
@@ -63,16 +62,12 @@ export function useSectionalTestsController() {
     let cancelled = false;
 
     const loadUserResults = async () => {
-      await preloadInitialAppData({
+      void preloadInitialAppData({
         role: session.user.role,
         userId: session.user.id,
       });
 
-      if (cancelled) {
-        return;
-      }
-
-      const cachedResults = getClientCache<UserResultSummary[]>(CACHE_USER_RESULTS);
+      const cachedResults = getCachedDashboardUserResults();
 
       if (cachedResults !== undefined) {
         if (!cancelled) {
@@ -82,13 +77,12 @@ export function useSectionalTestsController() {
       }
 
       try {
-        const nextResults = await fetchDashboardUserResults();
+        const nextResults = await preloadDashboardUserResults();
 
         if (cancelled) {
           return;
         }
 
-        setClientCache(CACHE_USER_RESULTS, nextResults);
         setUserResults(nextResults);
       } catch (error) {
         if (!cancelled) {
@@ -115,18 +109,26 @@ export function useSectionalTestsController() {
       return;
     }
 
+    if (status === "loading") {
+      return;
+    }
+
+    if (!session?.user?.id) {
+      setLoading(false);
+      setTestsRefreshing(false);
+      return;
+    }
+
     let cancelled = false;
 
     const loadTests = async () => {
-      if (session?.user?.id) {
-        await preloadInitialAppData({
-          role: session.user.role,
-          userId: session.user.id,
-        });
+      await preloadInitialAppData({
+        role: session.user.role,
+        userId: session.user.id,
+      });
 
-        if (cancelled) {
-          return;
-        }
+      if (cancelled) {
+        return;
       }
 
       const filters = {
@@ -173,7 +175,7 @@ export function useSectionalTestsController() {
     return () => {
       cancelled = true;
     };
-  }, [hasHydratedClientCache, moduleFilter, page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption]);
+  }, [hasHydratedClientCache, moduleFilter, page, pageSize, selectedPeriod, session?.user?.id, session?.user?.role, sortOption, status]);
 
   return {
     status,

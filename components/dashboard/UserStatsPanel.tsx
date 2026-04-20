@@ -5,24 +5,21 @@ import { useMemo } from "react";
 import { Flame, Target, Trophy } from "lucide-react";
 
 import ActivityHeatmap from "@/components/ActivityHeatmap";
-import type { UserResultSummary, UserStatsSummary } from "@/types/testLibrary";
+import type { DashboardActivityDay } from "@/types/dashboard";
+import type { UserStatsSummary } from "@/types/testLibrary";
 
 interface UserStatsPanelProps {
   userStats: UserStatsSummary;
-  userResults: UserResultSummary[];
+  activity: DashboardActivityDay[];
 }
 
-export default function UserStatsPanel({ userStats, userResults }: UserStatsPanelProps) {
+export default function UserStatsPanel({ userStats, activity }: UserStatsPanelProps) {
   const currentStreak = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const activeDays = new Set(
-      userResults.map((result) => {
-        const date = new Date(result.createdAt || result.date || result.updatedAt || today.toISOString());
-        date.setHours(0, 0, 0, 0);
-        return date.toISOString().split("T")[0];
-      }),
+      activity.filter((day) => day.count > 0).map((day) => day.dateKey),
     );
 
     let streak = 0;
@@ -34,7 +31,7 @@ export default function UserStatsPanel({ userStats, userResults }: UserStatsPane
     }
 
     return streak;
-  }, [userResults]);
+  }, [activity]);
 
   return (
     <section>
@@ -81,8 +78,8 @@ export default function UserStatsPanel({ userStats, userResults }: UserStatsPane
             </p>
           </div>
           <div className="col-span-2 hidden rounded-2xl border-2 border-ink-fg bg-paper-bg px-4 py-5 lg:grid lg:flex-1 lg:place-items-center">
-            {userResults.length > 0 ? (
-              <ActivityHeatmap results={userResults} />
+            {activity.length > 0 ? (
+              <ActivityHeatmap activity={activity} />
             ) : (
               <p className="text-center text-xs text-ink-fg/60">Complete a test to see activity.</p>
             )}

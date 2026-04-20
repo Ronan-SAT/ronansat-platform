@@ -11,39 +11,31 @@ import ImprovementTrendPanel from "@/components/dashboard/ImprovementTrendPanel"
 import RecentResultsList from "@/components/dashboard/RecentResultsList";
 import UserStatsPanel from "@/components/dashboard/UserStatsPanel";
 import UserStatsPanelSkeleton from "@/components/dashboard/UserStatsPanelSkeleton";
-import { fetchDashboardUserResults, fetchDashboardUserStats, fetchLeaderboard } from "@/lib/services/dashboardService";
-import { getClientCache, setClientCache } from "@/lib/clientCache";
-import { preloadInitialAppData } from "@/lib/startupPreload";
-import type { LeaderboardEntry, UserResultSummary, UserStatsSummary } from "@/types/testLibrary";
-
-const CACHE_STATS = "dashboard:stats";
-const CACHE_RESULTS = "dashboard:results:30";
-const CACHE_LEADERBOARD = "dashboard:leaderboard";
-const API_CACHE_STATS = "api:dashboard:stats";
-const API_CACHE_RESULTS = "api:dashboard:results:30";
-const API_CACHE_LEADERBOARD = "api:dashboard:leaderboard";
+import { getCachedDashboardBundle } from "@/lib/dashboardCache";
+import { preloadDashboardBundle, preloadInitialAppData } from "@/lib/startupPreload";
+import type { DashboardOverview } from "@/types/dashboard";
+import type { LeaderboardEntry } from "@/types/testLibrary";
 
 export default function DashboardPageClient() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const [userStats, setUserStats] = useState<UserStatsSummary>({ testsTaken: 0, highestScore: 0 });
-  const [userResults, setUserResults] = useState<UserResultSummary[]>([]);
+  const [overview, setOverview] = useState<DashboardOverview>({
+    userStats: { testsTaken: 0, highestScore: 0 },
+    activity: [],
+    recentResults: [],
+    trend: [],
+  });
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasHydratedClientCache, setHasHydratedClientCache] = useState(false);
 
   useLayoutEffect(() => {
-    const cachedStats = getClientCache<UserStatsSummary>(CACHE_STATS) ?? getClientCache<UserStatsSummary>(API_CACHE_STATS);
-    const cachedResults =
-      getClientCache<UserResultSummary[]>(CACHE_RESULTS) ?? getClientCache<UserResultSummary[]>(API_CACHE_RESULTS);
-    const cachedLeaderboard =
-      getClientCache<LeaderboardEntry[]>(CACHE_LEADERBOARD) ?? getClientCache<LeaderboardEntry[]>(API_CACHE_LEADERBOARD);
+    const cachedBundle = getCachedDashboardBundle();
 
-    if (cachedStats !== undefined && cachedResults !== undefined && cachedLeaderboard !== undefined) {
-      setUserStats(cachedStats);
-      setUserResults(cachedResults);
-      setLeaderboard(cachedLeaderboard);
+    if (cachedBundle) {
+      setOverview(cachedBundle.overview);
+      setLeaderboard(cachedBundle.leaderboard);
       setLoading(false);
     }
 
@@ -72,69 +64,30 @@ export default function DashboardPageClient() {
     let cancelled = false;
 
     const loadDashboard = async () => {
-      const cachedStats = getClientCache<UserStatsSummary>(CACHE_STATS) ?? getClientCache<UserStatsSummary>(API_CACHE_STATS);
-      const cachedResults =
-        getClientCache<UserResultSummary[]>(CACHE_RESULTS) ?? getClientCache<UserResultSummary[]>(API_CACHE_RESULTS);
-      const cachedLeaderboard =
-        getClientCache<LeaderboardEntry[]>(CACHE_LEADERBOARD) ?? getClientCache<LeaderboardEntry[]>(API_CACHE_LEADERBOARD);
-      const hasCachedDashboardData =
-        cachedStats !== undefined && cachedResults !== undefined && cachedLeaderboard !== undefined;
+      const cachedBundle = getCachedDashboardBundle();
 
-      if (hasCachedDashboardData) {
-        setUserStats(cachedStats);
-        setUserResults(cachedResults);
-        setLeaderboard(cachedLeaderboard);
+      if (cachedBundle) {
+        setOverview(cachedBundle.overview);
+        setLeaderboard(cachedBundle.leaderboard);
         setLoading(false);
       } else {
         setLoading(true);
       }
 
-      await preloadInitialAppData({
+      void preloadInitialAppData({
         role: session.user.role,
         userId: session.user.id,
       });
 
-      if (cancelled) {
-        return;
-      }
-
-      const warmedStats = getClientCache<UserStatsSummary>(CACHE_STATS) ?? getClientCache<UserStatsSummary>(API_CACHE_STATS);
-      const warmedResults =
-        getClientCache<UserResultSummary[]>(CACHE_RESULTS) ?? getClientCache<UserResultSummary[]>(API_CACHE_RESULTS);
-      const warmedLeaderboard =
-        getClientCache<LeaderboardEntry[]>(CACHE_LEADERBOARD) ?? getClientCache<LeaderboardEntry[]>(API_CACHE_LEADERBOARD);
-
-      if (warmedStats !== undefined && warmedResults !== undefined && warmedLeaderboard !== undefined) {
-        if (!cancelled) {
-          setClientCache(CACHE_STATS, warmedStats);
-          setClientCache(CACHE_RESULTS, warmedResults);
-          setClientCache(CACHE_LEADERBOARD, warmedLeaderboard);
-          setUserStats(warmedStats);
-          setUserResults(warmedResults);
-          setLeaderboard(warmedLeaderboard);
-          setLoading(false);
-        }
-        return;
-      }
-
       try {
-        const [stats, results, board] = await Promise.all([
-          fetchDashboardUserStats(),
-          fetchDashboardUserResults(30),
-          fetchLeaderboard(),
-        ]);
+        const bundle = await preloadDashboardBundle();
 
         if (cancelled) {
           return;
         }
 
-        setClientCache(CACHE_STATS, stats);
-        setClientCache(CACHE_RESULTS, results);
-        setClientCache(CACHE_LEADERBOARD, board);
-
-        setUserStats(stats);
-        setUserResults(results);
-        setLeaderboard(board);
+        setOverview(bundle.overview);
+        setLeaderboard(bundle.leaderboard);
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load student dashboard", error);
@@ -151,7 +104,7 @@ export default function DashboardPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [hasHydratedClientCache, router, session?.user?.hasCompletedProfile, session?.user?.role, status]);
+  }, [hasHydratedClientCache, router, session?.user?.hasCompletedProfile, session?.user?.id, session?.user?.role, status]);
 
   if (status === "loading" || loading) {
     return <DashboardPageSkeleton />;
@@ -182,10 +135,10 @@ export default function DashboardPageClient() {
         </section>
 
         <div className="space-y-8">
-          <UserStatsPanel userStats={userStats} userResults={userResults} />
+          <UserStatsPanel userStats={overview.userStats} activity={overview.activity} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
-            <ImprovementTrendPanel results={userResults} />
-            <RecentResultsList results={userResults} />
+            <ImprovementTrendPanel trend={overview.trend} />
+            <RecentResultsList results={overview.recentResults} />
           </div>
           <LeaderboardTable leaderboard={leaderboard} />
         </div>

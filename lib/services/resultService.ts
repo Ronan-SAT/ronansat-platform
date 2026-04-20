@@ -3,6 +3,7 @@ import type { QuestionExtra } from "@/lib/questionExtra";
 import { ResultValidationSchema } from "@/lib/schema/result";
 import { isVerbalSection } from "@/lib/sections";
 import type { ReviewAnswer, ReviewErrorLogEntry, ReviewErrorLogPage, ReviewErrorLogStatus, ReviewResult } from "@/types/review";
+import type { UserResultSummary } from "@/types/testLibrary";
 
 type ValidatedAnswer = {
   questionId: string;
@@ -353,6 +354,43 @@ async function fetchResultsView(userId: string, days?: number) {
   });
 }
 
+async function fetchResultsSummaryView(userId: string, days?: number) {
+  const supabase = createSupabaseAdminClient();
+  let query = supabase
+    .from("test_attempts")
+    .select("id,test_id,mode,section_id,score,total_score,reading_score,math_score,submitted_at,test_sections:section_id(name,module_number)")
+    .eq("user_id", userId)
+    .order("submitted_at", { ascending: false });
+
+  const dateFilter = buildDateFilter(days);
+  if (dateFilter) {
+    query = query.gte("submitted_at", dateFilter);
+  }
+
+  const { data: attempts, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (attempts ?? []).map((attempt) => {
+    const section = getAttemptSection(attempt.test_sections as AttemptSectionRow | AttemptSectionRow[] | undefined);
+
+    return {
+      _id: attempt.id,
+      testId: attempt.test_id,
+      createdAt: attempt.submitted_at,
+      date: attempt.submitted_at,
+      score: attempt.score ?? undefined,
+      totalScore: attempt.total_score ?? undefined,
+      readingScore: attempt.reading_score ?? undefined,
+      mathScore: attempt.math_score ?? undefined,
+      isSectional: attempt.mode === "sectional",
+      sectionalSubject: section?.name ?? undefined,
+      sectionalModule: section?.module_number ?? undefined,
+    } satisfies UserResultSummary;
+  });
+}
+
 export const resultService = {
   async createResult(userId: string, data: unknown) {
     const validatedData = ResultValidationSchema.parse(data);
@@ -471,8 +509,10 @@ export const resultService = {
     };
   },
 
-  async getUserResults(userId: string, days?: number) {
-    return { results: await fetchResultsView(userId, days) };
+  async getUserResults(userId: string, days?: number, options?: { summaryOnly?: boolean }) {
+    return {
+      results: options?.summaryOnly ? await fetchResultsSummaryView(userId, days) : await fetchResultsView(userId, days),
+    };
   },
 
   async getUserErrorLogPage(

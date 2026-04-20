@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 import { deleteClientCache } from "@/lib/clientCache";
+import { DASHBOARD_CACHE_KEYS } from "@/lib/dashboardCache";
 import type { QuestionExtra } from "@/lib/questionExtra";
 import { normalizeSectionName, VERBAL_SECTION } from "@/lib/sections";
 import { checkIsCorrect } from "@/utils/gradingHelper";
@@ -34,14 +35,12 @@ export const testStages = [
 
 function clearDashboardCaches() {
   const cacheKeys = [
-    "dashboard:stats",
-    "dashboard:results:30",
-    "dashboard:leaderboard",
-    "dashboard:user-results",
-    "api:dashboard:stats",
-    "api:dashboard:results:30",
-    "api:dashboard:results:all",
-    "api:dashboard:leaderboard",
+    DASHBOARD_CACHE_KEYS.overview,
+    DASHBOARD_CACHE_KEYS.leaderboard,
+    DASHBOARD_CACHE_KEYS.userResults,
+    DASHBOARD_CACHE_KEYS.apiOverview,
+    DASHBOARD_CACHE_KEYS.apiUserResults,
+    DASHBOARD_CACHE_KEYS.apiLeaderboard,
     "review:results",
   ];
 

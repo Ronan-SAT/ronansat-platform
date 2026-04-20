@@ -1,7 +1,9 @@
-import { getClientCache, setClientCache } from "@/lib/clientCache";
+import { readThroughClientCache } from "@/lib/clientCache";
 import { API_PATHS } from "@/lib/apiPaths";
 import api from "@/lib/axios";
-import type { LeaderboardEntry, UserResultSummary, UserStatsSummary } from "@/types/testLibrary";
+import { DASHBOARD_CACHE_KEYS } from "@/lib/dashboardCache";
+import type { DashboardOverview } from "@/types/dashboard";
+import type { LeaderboardEntry, UserResultSummary } from "@/types/testLibrary";
 
 /** Shared options accepted by every service function in this module. */
 interface FetchOptions {
@@ -23,57 +25,32 @@ export async function fetchDashboardUserResults(
   days?: number,
   options?: FetchOptions,
 ): Promise<UserResultSummary[]> {
-  const cacheKey = `api:dashboard:results:${days ?? "all"}`;
-
-  // Cache hit — return immediately without a network call.
-  if (!options?.forceRefresh) {
-    const cached = getClientCache<UserResultSummary[]>(cacheKey);
-    if (cached !== undefined) {
-      return cached;
-    }
+  const params = new URLSearchParams({ summary: "1" });
+  if (typeof days === "number") {
+    params.set("days", String(days));
   }
 
-  // Cache miss or forced refresh — fetch from the API.
-  const query = typeof days === "number" ? `?days=${days}` : "";
-  const res = await api.get(`${API_PATHS.RESULTS}${query}`);
-  const results = (res.data.results || []) as UserResultSummary[];
+  const cacheKey = DASHBOARD_CACHE_KEYS.apiUserResults;
 
-  // Only cache a successful, non-empty-by-error response.
-  setClientCache(cacheKey, results);
-
-  return results;
+  return readThroughClientCache(
+    cacheKey,
+    async () => {
+      const res = await api.get(`${API_PATHS.RESULTS}?${params.toString()}`);
+      return (res.data.results || []) as UserResultSummary[];
+    },
+    options,
+  );
 }
 
-// ---------------------------------------------------------------------------
-// fetchDashboardUserStats
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the current user's aggregate stats (tests taken, highest score).
- */
-export async function fetchDashboardUserStats(
-  options?: FetchOptions,
-): Promise<UserStatsSummary> {
-  const cacheKey = "api:dashboard:stats";
-
-  // Cache hit — return immediately without a network call.
-  if (!options?.forceRefresh) {
-    const cached = getClientCache<UserStatsSummary>(cacheKey);
-    if (cached !== undefined) {
-      return cached;
-    }
-  }
-
-  // Cache miss or forced refresh — fetch from the API.
-  const res = await api.get("/api/user/stats");
-  const stats = {
-    testsTaken: (res.data.testsTaken || 0) as number,
-    highestScore: (res.data.highestScore || 0) as number,
-  } satisfies UserStatsSummary;
-
-  setClientCache(cacheKey, stats);
-
-  return stats;
+export async function fetchDashboardOverview(options?: FetchOptions): Promise<DashboardOverview> {
+  return readThroughClientCache(
+    DASHBOARD_CACHE_KEYS.apiOverview,
+    async () => {
+      const res = await api.get(API_PATHS.USER_DASHBOARD);
+      return res.data as DashboardOverview;
+    },
+    options,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -86,21 +63,12 @@ export async function fetchDashboardUserStats(
 export async function fetchLeaderboard(
   options?: FetchOptions,
 ): Promise<LeaderboardEntry[]> {
-  const cacheKey = "api:dashboard:leaderboard";
-
-  // Cache hit — return immediately without a network call.
-  if (!options?.forceRefresh) {
-    const cached = getClientCache<LeaderboardEntry[]>(cacheKey);
-    if (cached !== undefined) {
-      return cached;
-    }
-  }
-
-  // Cache miss or forced refresh — fetch from the API.
-  const res = await api.get("/api/leaderboard");
-  const leaderboard = (res.data.leaderboard || []) as LeaderboardEntry[];
-
-  setClientCache(cacheKey, leaderboard);
-
-  return leaderboard;
+  return readThroughClientCache(
+    DASHBOARD_CACHE_KEYS.apiLeaderboard,
+    async () => {
+      const res = await api.get("/api/leaderboard");
+      return (res.data.leaderboard || []) as LeaderboardEntry[];
+    },
+    options,
+  );
 }

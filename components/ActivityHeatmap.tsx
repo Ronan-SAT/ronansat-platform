@@ -2,13 +2,13 @@
 
 import { useMemo } from "react";
 
-import type { ActivityResultLike } from "@/types/activity";
+import type { DashboardActivityDay } from "@/types/dashboard";
 
 interface ActivityHeatmapProps {
-  results: ActivityResultLike[];
+  activity: DashboardActivityDay[];
 }
 
-export default function ActivityHeatmap({ results }: ActivityHeatmapProps) {
+export default function ActivityHeatmap({ activity }: ActivityHeatmapProps) {
   const { heatmapData } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -21,11 +21,8 @@ export default function ActivityHeatmap({ results }: ActivityHeatmapProps) {
 
     const activityMap = new Map<string, number>();
 
-    results.forEach((result) => {
-      const resultDate = new Date(result.createdAt || result.date || result.updatedAt || today.toISOString());
-      resultDate.setHours(0, 0, 0, 0);
-      const dateKey = resultDate.toISOString().split("T")[0];
-      activityMap.set(dateKey, (activityMap.get(dateKey) || 0) + 1);
+    activity.forEach((day) => {
+      activityMap.set(day.dateKey, day.count);
     });
 
     return {
@@ -38,7 +35,7 @@ export default function ActivityHeatmap({ results }: ActivityHeatmapProps) {
         };
       }),
     };
-  }, [results]);
+  }, [activity]);
 
   const getColorClass = (count: number) => {
     if (count === 0) {

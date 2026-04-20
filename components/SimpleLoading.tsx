@@ -59,8 +59,8 @@ function getRandomQuoteIndex(excludeIndex?: number) {
 }
 
 export default function SimpleLoading({ showQuote = true }: SimpleLoadingProps) {
-  const [quoteIndex, setQuoteIndex] = useState<number | null>(showQuote ? null : 0);
-  const [isVisible, setIsVisible] = useState(!showQuote);
+  const [quoteIndex, setQuoteIndex] = useState<number | null>(() => (showQuote ? getRandomQuoteIndex() : 0));
+  const [isVisible, setIsVisible] = useState(true);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -70,21 +70,6 @@ export default function SimpleLoading({ showQuote = true }: SimpleLoadingProps) 
       document.body.classList.remove("loading-screen-active");
     };
   }, []);
-
-  useEffect(() => {
-    if (!showQuote) {
-      return;
-    }
-
-    const initializeQuoteTimeoutId = window.setTimeout(() => {
-      setQuoteIndex(getRandomQuoteIndex());
-      setIsVisible(true);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(initializeQuoteTimeoutId);
-    };
-  }, [showQuote]);
 
   useEffect(() => {
     if (!showQuote || quoteIndex === null) {

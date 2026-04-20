@@ -4,13 +4,12 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, ChartSpline } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from "recharts";
 
-import { getDisplayScore, getResultDateValue } from "@/components/dashboard/dashboardResultUtils";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserResultSummary } from "@/types/testLibrary";
+import type { DashboardTrendPoint } from "@/types/dashboard";
 
 type ImprovementTrendPanelProps = {
-  results: UserResultSummary[];
+  trend: DashboardTrendPoint[];
 };
 
 type RangeOption = 15 | 30;
@@ -34,9 +33,9 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export default function ImprovementTrendPanel({ results }: ImprovementTrendPanelProps) {
+export default function ImprovementTrendPanel({ trend }: ImprovementTrendPanelProps) {
   const [range, setRange] = useState<RangeOption>(15);
-  const rangeSummary = useMemo(() => buildRangeSummary(results, range), [range, results]);
+  const rangeSummary = useMemo(() => buildRangeSummary(trend, range), [range, trend]);
 
   return (
     <section className="workbook-panel overflow-hidden">
@@ -169,44 +168,17 @@ function MetricCard({ label, value, accentClassName }: { label: string; value: s
   );
 }
 
-function buildRangeSummary(results: UserResultSummary[], range: RangeOption) {
+function buildRangeSummary(trend: DashboardTrendPoint[], range: RangeOption) {
   const end = new Date();
   end.setHours(0, 0, 0, 0);
 
   const start = new Date(end);
   start.setDate(start.getDate() - (range - 1));
 
-  const bestScoresByDate = new Map<string, number>();
+  const trendByDate = new Map(
+    trend.map((point) => [point.dateKey, point]),
+  );
   let tests = 0;
-
-  for (const result of results) {
-    if (result.isSectional) {
-      continue;
-    }
-
-    const rawDate = getResultDateValue(result);
-
-    if (!rawDate) {
-      continue;
-    }
-
-    const resultDate = new Date(rawDate);
-    resultDate.setHours(0, 0, 0, 0);
-
-    if (resultDate < start || resultDate > end) {
-      continue;
-    }
-
-    tests += 1;
-
-    const dateKey = resultDate.toISOString().split("T")[0];
-    const score = getDisplayScore(result);
-    const currentBest = bestScoresByDate.get(dateKey);
-
-    if (typeof currentBest !== "number" || score > currentBest) {
-      bestScoresByDate.set(dateKey, score);
-    }
-  }
 
   const chartData: ChartPoint[] = [];
 
@@ -215,12 +187,14 @@ function buildRangeSummary(results: UserResultSummary[], range: RangeOption) {
     currentDate.setDate(start.getDate() + index);
 
     const dateKey = currentDate.toISOString().split("T")[0];
+    const point = trendByDate.get(dateKey);
+    tests += point?.tests ?? 0;
 
     chartData.push({
       dateKey,
       shortLabel: currentDate.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       fullLabel: currentDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
-      score: bestScoresByDate.get(dateKey) ?? null,
+      score: point?.score ?? null,
     });
   }
 

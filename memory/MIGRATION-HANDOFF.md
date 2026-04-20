@@ -30,11 +30,18 @@ Useful commands:
 - `bun run supabase:start`
 - `bun run supabase:stop`
 - `bun run supabase:db:reset`
+- `bun run db -- --fetch`
 - `bun run supabase:migrate:users`
 - `bun run supabase:migrate:tests`
 - `bun run supabase:migrate:user-data`
 - `bun run supabase:migrate:results`
 - `bun run supabase:migrate:all`
+
+Local database workflow notes:
+
+- `bun run db -- --fetch` refreshes local Supabase from the linked production project, refreshes local MongoDB from the configured remote Mongo source, and writes a gitignored local Supabase snapshot to `supabase/seeds/local-data.sql`.
+- `bun run supabase:db:reset` is now a local wrapper that runs a normal local reset first, then restores `supabase/seeds/local-data.sql` if that snapshot exists.
+- Production database automation still uses `supabase db push` only. It does not run `db reset` and does not apply local snapshot seed files.
 
 The MongoDB -> Supabase migration scripts now live in `scripts/migrations/mongodb-to-supabase/`.
 

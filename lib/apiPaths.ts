@@ -5,6 +5,7 @@ export const API_PATHS = {
     QUESTIONS: "/api/questions",
     RESULTS: "/api/results",
     USER_SETTINGS: "/api/user/settings",
+    USER_DASHBOARD: "/api/user/dashboard",
     USER_PASSWORD: "/api/user/password",
     USER_ONBOARDING: "/api/user/onboarding",
     USER_USERNAME: "/api/user/username",

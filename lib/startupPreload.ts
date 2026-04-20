@@ -1,17 +1,16 @@
 import { getClientCache, setClientCache } from "@/lib/clientCache";
+import {
+  getCachedDashboardBundle,
+  getCachedDashboardUserResults,
+  setCachedDashboardBundle,
+  setCachedDashboardUserResults,
+  type DashboardBundle,
+} from "@/lib/dashboardCache";
 import type { Role } from "@/lib/permissions";
-import { fetchDashboardUserResults, fetchDashboardUserStats, fetchLeaderboard } from "@/lib/services/dashboardService";
+import { fetchDashboardOverview, fetchDashboardUserResults, fetchLeaderboard } from "@/lib/services/dashboardService";
 import { fetchTestsPage, getTestsClientCacheKey } from "@/lib/services/testLibraryService";
-import type { CachedTestsPayload, LeaderboardEntry, UserResultSummary, UserStatsSummary } from "@/types/testLibrary";
+import type { CachedTestsPayload } from "@/types/testLibrary";
 
-const DASHBOARD_STATS_CACHE_KEY = "dashboard:stats";
-const DASHBOARD_STATS_API_CACHE_KEY = "api:dashboard:stats";
-const DASHBOARD_RESULTS_CACHE_KEY = "dashboard:results:30";
-const DASHBOARD_RESULTS_API_CACHE_KEY = "api:dashboard:results:30";
-const DASHBOARD_LEADERBOARD_CACHE_KEY = "dashboard:leaderboard";
-const DASHBOARD_LEADERBOARD_API_CACHE_KEY = "api:dashboard:leaderboard";
-const DASHBOARD_USER_RESULTS_CACHE_KEY = "dashboard:user-results";
-const DASHBOARD_USER_RESULTS_API_CACHE_KEY = "api:dashboard:results:all";
 const FULL_LENGTH_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", { selectedPeriod: "All" });
 const SECTIONAL_READING_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", {
   selectedPeriod: "All",
@@ -29,22 +28,6 @@ type PreloadParams = {
   userId: string;
 };
 
-function syncMirroredCache<T>(primaryKey: string, mirrorKey: string) {
-  const primaryValue = getClientCache<T>(primaryKey);
-  const mirrorValue = getClientCache<T>(mirrorKey);
-
-  if (primaryValue === undefined && mirrorValue !== undefined) {
-    setClientCache(primaryKey, mirrorValue);
-    return mirrorValue;
-  }
-
-  if (primaryValue !== undefined && mirrorValue === undefined) {
-    setClientCache(mirrorKey, primaryValue);
-  }
-
-  return primaryValue;
-}
-
 function warmTestsPage(cacheKey: string, subject?: "reading" | "math") {
   const cachedPayload = getClientCache<CachedTestsPayload>(cacheKey);
   if (cachedPayload !== undefined) {
@@ -60,62 +43,65 @@ function warmTestsPage(cacheKey: string, subject?: "reading" | "math") {
 }
 
 function warmDashboardStats() {
-  const cachedStats = syncMirroredCache<UserStatsSummary>(DASHBOARD_STATS_CACHE_KEY, DASHBOARD_STATS_API_CACHE_KEY);
-  if (cachedStats !== undefined) {
+  const cachedBundle = getCachedDashboardBundle();
+  if (cachedBundle?.overview !== undefined) {
     return Promise.resolve();
   }
 
-  return fetchDashboardUserStats().then((stats) => {
-    setClientCache(DASHBOARD_STATS_CACHE_KEY, stats);
-  });
-}
-
-function warmDashboardResults(days: 30) {
-  const cachedResults = syncMirroredCache<UserResultSummary[]>(
-    DASHBOARD_RESULTS_CACHE_KEY,
-    DASHBOARD_RESULTS_API_CACHE_KEY,
-  );
-  if (cachedResults !== undefined) {
-    return Promise.resolve();
-  }
-
-  return fetchDashboardUserResults(days).then((results) => {
-    setClientCache(DASHBOARD_RESULTS_CACHE_KEY, results);
-  });
+  return fetchDashboardOverview();
 }
 
 function warmDashboardLeaderboard() {
-  const cachedLeaderboard = syncMirroredCache<LeaderboardEntry[]>(
-    DASHBOARD_LEADERBOARD_CACHE_KEY,
-    DASHBOARD_LEADERBOARD_API_CACHE_KEY,
-  );
-  if (cachedLeaderboard !== undefined) {
+  const cachedBundle = getCachedDashboardBundle();
+  if (cachedBundle?.leaderboard !== undefined) {
     return Promise.resolve();
   }
 
-  return fetchLeaderboard().then((leaderboard) => {
-    setClientCache(DASHBOARD_LEADERBOARD_CACHE_KEY, leaderboard);
-  });
+  return fetchLeaderboard();
 }
 
 function warmDashboardUserResults() {
-  const cachedResults = syncMirroredCache<UserResultSummary[]>(
-    DASHBOARD_USER_RESULTS_CACHE_KEY,
-    DASHBOARD_USER_RESULTS_API_CACHE_KEY,
-  );
-  if (cachedResults !== undefined) {
+  if (getCachedDashboardUserResults() !== undefined) {
     return Promise.resolve();
   }
 
-  return fetchDashboardUserResults().then((results) => {
-    setClientCache(DASHBOARD_USER_RESULTS_CACHE_KEY, results);
-  });
+  return fetchDashboardUserResults();
+}
+
+export async function preloadDashboardBundle() {
+  const cachedBundle = getCachedDashboardBundle();
+  if (cachedBundle) {
+    return cachedBundle;
+  }
+
+  const [overview, leaderboard] = await Promise.all([
+    fetchDashboardOverview(),
+    fetchLeaderboard(),
+  ]);
+
+  const bundle = {
+    overview,
+    leaderboard,
+  } satisfies DashboardBundle;
+
+  setCachedDashboardBundle(bundle);
+  return bundle;
+}
+
+export async function preloadDashboardUserResults() {
+  const cachedResults = getCachedDashboardUserResults();
+  if (cachedResults !== undefined) {
+    return cachedResults;
+  }
+
+  const results = await fetchDashboardUserResults();
+  setCachedDashboardUserResults(results);
+  return results;
 }
 
 async function preloadStudentAppData() {
   await Promise.allSettled([
     warmDashboardStats(),
-    warmDashboardResults(30),
     warmDashboardLeaderboard(),
     warmDashboardUserResults(),
     warmTestsPage(FULL_LENGTH_CACHE_KEY),

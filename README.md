@@ -94,6 +94,27 @@ The committed `.env.development` file is encrypted. `bun run dev` now expects th
 
 By default, `bun run dev` points the app at a local MongoDB database at `mongodb://127.0.0.1:27017/ronansat-local`.
 
+## 5. Database model
+
+This repo currently uses two databases in development and production:
+
+- Supabase Postgres for auth, profiles, tests, questions, attempts, review data, settings, vocab, and the main app runtime
+- MongoDB for the remaining legacy fix-board and related bridge workflows
+
+Local database behavior:
+
+- `bun run db` starts local Supabase and local MongoDB
+- `bun run db -- --fetch` refreshes local Supabase from the linked production Supabase project, refreshes local MongoDB from the configured remote Mongo source, and writes a reusable local Supabase snapshot to `supabase/seeds/local-data.sql`
+- `bun run supabase:db:reset` resets the local Supabase schema from committed migrations, then restores `supabase/seeds/local-data.sql` if that snapshot exists
+- `bun run dev` points the app at `LOCAL_MONGODB_URI`, not the remote Mongo database
+
+Production database behavior:
+
+- production schema changes are applied by `bun run supabase:db:push:production`
+- the GitHub production workflow links to the production Supabase project and runs `supabase db push --linked --include-all`
+- the production workflow does not run `supabase db reset`
+- the production workflow does not apply `supabase/seed.sql` or the local snapshot at `supabase/seeds/local-data.sql`
+
 `bun run db` now starts both local Supabase and local MongoDB together:
 
 ```bash
@@ -126,11 +147,30 @@ Inbucket: http://127.0.0.1:55324
 
 On first run, if that local database is reachable but empty, `bun run db` automatically copies the latest remote MongoDB data into it.
 
-If you want to refresh that local database from the shared remote MongoDB before startup, run:
+If you want to refresh local data from the shared remote sources before startup, run:
 
 ```bash
 bun run db -- --fetch
 bun run dev
+```
+
+With `--fetch`, the script now:
+
+- resets local Supabase, pulls `public`, `auth`, and `storage` data from the linked production Supabase project, and restores that data into the local stack
+- writes a local-only Supabase snapshot to `supabase/seeds/local-data.sql` so future `supabase db reset` runs can restore the fetched data without linking to production again
+- copies the remote MongoDB source into `LOCAL_MONGODB_URI`
+
+Before the Supabase portion, authenticate your local CLI once:
+
+```bash
+supabase login
+```
+
+Then set only these local-only values in your shell or `.env.local`:
+
+```env
+SUPABASE_DB_PASSWORD=<production database password>
+SUPABASE_PROJECT_REF=awzhqoxnyxyciaoejjno
 ```
 
 ## 6. Fastest local setup
@@ -163,7 +203,8 @@ Important notes:
 - `bun run db` starts local Supabase and the local MongoDB service for the `LOCAL_MONGODB_URI` target
 - `bun stop db` stops local Supabase and the local MongoDB service for the `LOCAL_MONGODB_URI` target
 - if the local database is empty on first run, `bun run db` automatically copies the current remote MongoDB data into it
-- `bun run db -- --fetch` forces a fresh copy into the local database before you run the app
+- `bun run db -- --fetch` forces a fresh copy of both production Supabase data and remote MongoDB data into your local databases before you run the app
+- after one successful `bun run db -- --fetch`, later local `bun run supabase:db:reset` runs will reuse the gitignored `supabase/seeds/local-data.sql` snapshot until you fetch again
 - MongoDB is required; `bun run dev` rewrites `MONGODB_URI` to `LOCAL_MONGODB_URI` before startup so the app uses a local database by default
 - Supabase local keys are required for auth to work reliably
 
@@ -207,6 +248,8 @@ Production Supabase schema push uses the encrypted production env plus a separat
 bun run supabase:db:push:production
 ```
 
+That production workflow does not run `supabase db reset` and does not apply local snapshot seed files. It only runs `supabase db push` against the linked production project.
+
 To update the shared encrypted development env:
 
 ```bash
@@ -217,7 +260,7 @@ To update the shared encrypted development env:
 
 You can distribute the encrypted `.env.development` through git, and distribute the matching `.env.keys` to trusted developers through a separate secure channel.
 
-`bun run db`, `bun stop db`, `bun run dev`, `bun run build`, and `bun run start` all load env through `dotenvx`. Development commands use `.env.development` plus optional `.env.local` overrides, while production build and start use `.env.production`. The deployed production server runtime decrypts `.env.production` on startup with `DOTENV_PRIVATE_KEY_PRODUCTION`. `bun run db` uses `REMOTE_MONGODB_URI` or the shared `MONGODB_URI` as the fetch source when a first-run bootstrap or `--fetch` is needed, and `bun run dev` points the app itself at `LOCAL_MONGODB_URI`.
+`bun run db`, `bun stop db`, `bun run dev`, `bun run build`, and `bun run start` all load env through `dotenvx`. Development commands use `.env.development` plus optional `.env.local` overrides, while production build and start use `.env.production`. The deployed production server runtime decrypts `.env.production` on startup with `DOTENV_PRIVATE_KEY_PRODUCTION`. `bun run db` uses `REMOTE_MONGODB_URI` or the shared `MONGODB_URI` as the Mongo fetch source when a first-run bootstrap or `--fetch` is needed, and `bun run db -- --fetch` now also requires a local `supabase login` plus `SUPABASE_DB_PASSWORD` and optional `SUPABASE_PROJECT_REF` to refresh local Supabase data from production before the Mongo sync. A successful fetch also refreshes the gitignored local snapshot at `supabase/seeds/local-data.sql`, and `bun run supabase:db:reset` will replay that snapshot automatically after a normal local reset. `bun run dev` points the app itself at `LOCAL_MONGODB_URI`.
 
 The repo also includes a two-step GitHub Actions pipeline for Supabase schema sync:
 
@@ -235,6 +278,8 @@ Environment variables used by the codebase:
 | `MONGODB_URI` | Yes | MongoDB connection |
 | `LOCAL_MONGODB_URI` | For local dev | Local MongoDB target used by `bun run dev` |
 | `REMOTE_MONGODB_URI` | Optional | Explicit remote MongoDB source for `bun run db -- --fetch` |
+| `SUPABASE_DB_PASSWORD` | For `bun run db -- --fetch` Supabase sync | Production Supabase database password |
+| `SUPABASE_PROJECT_REF` | Optional | Overrides the default production Supabase project ref used by `bun run db -- --fetch` |
 | `NEXT_PUBLIC_SUPABASE_URL` | For Supabase migration work | Supabase API URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | For Supabase migration work | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | For Supabase migration scripts/server-only work | Supabase service role key |
@@ -249,6 +294,8 @@ Example `.env.local`:
 ```env
 LOCAL_MONGODB_URI=mongodb://127.0.0.1:27017/ronansat-local
 REMOTE_MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db-name>?retryWrites=true&w=majority
+SUPABASE_DB_PASSWORD=<production database password>
+SUPABASE_PROJECT_REF=awzhqoxnyxyciaoejjno
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<local supabase anon key>
 SUPABASE_SERVICE_ROLE_KEY=<local supabase service role key>
