@@ -1,3 +1,5 @@
+// Phần pop up khi ấn 1 câu cụ thể trong review
+
 "use client";
 
 import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
@@ -24,16 +26,21 @@ interface AnswerDetailsProps {
   ans: ReviewAnswer;
 }
 
+// q chứa mọi thông tin về câu hỏi, ans chứa thông tin về lựa chọn của user (chọn gì, đúng k, đáp,...)
 export default function AnswerDetails({ q, ans }: AnswerDetailsProps) {
-  const choices = q?.choices || [];
-  const optionLabels = ["A", "B", "C", "D"];
-  const displayedUserAnswer = getChoiceTextFromStoredAnswer(q, ans?.userAnswer);
-  const displayedCorrectAnswer = getChoiceTextFromStoredAnswer(q, q?.correctAnswer);
+  const choices = q?.choices || [];             // Lấy các lựa chọn của đề
+  const optionLabels = ["A", "B", "C", "D"];    
+  const displayedUserAnswer = getChoiceTextFromStoredAnswer(q, ans?.userAnswer);       // Lấy đáp án của user
+  const displayedCorrectAnswer = getChoiceTextFromStoredAnswer(q, q?.correctAnswer);   // Lấy đáp án của câu đó
 
-  if (q.questionType === "spr") {
+  if (q.questionType === "spr") {                                            // Vẽ giao diện cho tự luận
+    
+    // 3 trường hợp đúng, sai, bỏ
     const isCorrect = ans.isCorrect;
-    const isOmitted = !ans.userAnswer || ans.userAnswer === "Omitted";
+    const isOmitted = !ans.userAnswer || ans.userAnswer === "Omitted"; 
     const isWrong = !isCorrect && !isOmitted;
+
+    // class cho 3 trường hợp
     const wrapClassName = isCorrect
       ? "bg-accent-2 text-white"
       : isWrong

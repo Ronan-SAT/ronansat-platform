@@ -1,3 +1,6 @@
+// Báo cáo kết quả bài test
+
+
 import {
   BookOpen,
   Calculator,
@@ -19,39 +22,39 @@ import {
 } from "@/components/review/reviewPage.utils";
 import { SkillPerformanceCard } from "@/components/review/SkillPerformanceCard";
 
-type ReviewReportProps = {
+type ReviewReportProps = {         // quy định định dạng phải có khi dùng ReviewReportProps
   testType: "full" | "sectional";
-  activeTest?: ReviewResult;
-  onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
+  activeTest?: ReviewResult;      // Toàn bộ dữ liệu bài test đó
+  onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;   // Function để khi user ấn vào 1 ô ứng với 1 câu thì hiện ra để xem
 };
 
-function AnswerGrid({
+function AnswerGrid({  // Destructure món hàng mà component cha truyền xuống
   answers,
-  startIndex,
+  startIndex,   
   resultId,
   testId,
   onSelectAnswer,
-}: {
+}: {          // Ép buộc Dev phải truyền đúng loại data khi code
   answers: ReviewAnswer[];
   startIndex: number;
   resultId: string;
   testId?: string;
-  onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
+  onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;   // TS bắt buộc đây là 1 hàm nhận vào payload và k cần trả về anything
 }) {
-  if (!answers || answers.length === 0) {
+  if (!answers || answers.length === 0) {    // Chặn trước tránh map 1 biến null thì bị sập
     return <p className="mt-2 text-sm italic text-ink-fg/60">No data for this module.</p>;
   }
 
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mt-3 flex flex-wrap gap-2">  
       {answers.map((answer, index) => {
         const isOmitted = !answer.userAnswer || answer.userAnswer === "" || answer.userAnswer === "Omitted";
-        let className = "border-2 border-ink-fg bg-surface-white text-ink-fg";
+        let className = "border-2 border-ink-fg bg-surface-white text-ink-fg";   // Điều chỉnh màu nếu câu này bị Omitted
 
         if (!isOmitted) {
           className = answer.isCorrect
-            ? "border-2 border-ink-fg bg-accent-2 text-white"
-            : "border-2 border-ink-fg bg-accent-3 text-white";
+            ? "border-2 border-ink-fg bg-accent-2 text-white"   
+            : "border-2 border-ink-fg bg-accent-3 text-white"; 
         }
 
         return (
@@ -69,9 +72,9 @@ function AnswerGrid({
   );
 }
 
-function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "sectional"; activeTest: ReviewResult }) {
-  const stats = getReviewStats(activeTest.answers || []);
-  const fullLengthScore = Math.max(400, activeTest.totalScore ?? activeTest.score ?? 0);
+function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "sectional"; activeTest: ReviewResult }) {   // Hàm hiện thẻ tóm tắt điểm số ở trên cùng, nhận vào Loại bài test và Thông tin activeTest (toàn bộ dữ liệu bài thi user đang chọn)
+  const stats = getReviewStats(activeTest.answers || []);    // Truyền vào array chứa các choices của user để đếm số câu đúng
+  const fullLengthScore = Math.max(400, activeTest.totalScore ?? activeTest.score ?? 0);   // Điểm tổng
 
   return (
     <div className="workbook-panel overflow-hidden">
@@ -92,8 +95,8 @@ function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "secti
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2 border-t-2 border-ink-fg/15 pt-4">
-        <span className="workbook-sticker bg-accent-2 text-white">
-          <CheckCircle2 className="h-3.5 w-3.5" /> {stats.correct} Correct
+        <span className="workbook-sticker bg-accent-2 text-white">  
+          <CheckCircle2 className="h-3.5 w-3.5" /> {stats.correct} Correct      
         </span>
         <span className="workbook-sticker bg-accent-3 text-white">
           <XCircle className="h-3.5 w-3.5" /> {stats.wrong} Wrong
@@ -114,7 +117,7 @@ function FullLengthReport({
   activeTest: ReviewResult;
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
 }) {
-  const { rwModule1, rwModule2, mathModule1, mathModule2 } = groupFullLengthAnswers(activeTest);
+  const { rwModule1, rwModule2, mathModule1, mathModule2 } = groupFullLengthAnswers(activeTest);  // Data ban đầu là vd 100 câu liền, hàm này ngắt thành từng module, section
 
   return (
     <div className="space-y-6">
@@ -165,7 +168,7 @@ function FullLengthReport({
 
         <div className="space-y-6 p-6">
         {[
-          { label: "Module 1", answers: mathModule1, startIndex: 0 },
+          { label: "Module 1", answers: mathModule1, startIndex: 0 },   // Full length thì in hết cả RW và math mod 1 và 2
           { label: "Module 2", answers: mathModule2, startIndex: 0 },
         ].map(({ label, answers, startIndex }) => {
           const stats = getReviewStats(answers);
@@ -198,9 +201,9 @@ function SectionalReport({
   activeTest: ReviewResult;
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
 }) {
-  const colors = getSectionalColors(activeTest.sectionalSubject || "");
-  const answers = activeTest.answers || [];
-  const stats = getReviewStats(answers);
+  const colors = getSectionalColors(activeTest.sectionalSubject || "");   // Lấy màu sắc riêng của môn học đó
+  const answers = activeTest.answers || [];    // Lấy list câu trả lời của user+đáp án đúng của câu đó ra
+  const stats = getReviewStats(answers);       // Gọi hàm tính số câu đúng/sai cho phần Sectional này 
 
   return (
     <div className="workbook-panel overflow-hidden">
@@ -229,7 +232,7 @@ function SectionalReport({
 }
 
 export function ReviewReport({ testType, activeTest, onSelectAnswer }: ReviewReportProps) {
-  if (!activeTest) {
+  if (!activeTest) {     // Nếu k thấy bài test nào để hiện Review
     return (
       <div className="flex h-full flex-col items-center justify-center text-ink-fg">
         <div className="workbook-panel max-w-sm p-10 text-center">
@@ -241,7 +244,7 @@ export function ReviewReport({ testType, activeTest, onSelectAnswer }: ReviewRep
     );
   }
 
-  if (!activeTest.detailsLoaded) {
+  if (!activeTest.detailsLoaded) {   // Nếu đang load data cho bài test
     return (
       <div className="mx-auto max-w-5xl">
         <div className="workbook-panel p-10 text-center">
@@ -253,7 +256,8 @@ export function ReviewReport({ testType, activeTest, onSelectAnswer }: ReviewRep
     );
   }
 
-  const skillData = getSkillPerformance(activeTest.answers || []);
+  // Đến đây là chắc chắc có data
+  const skillData = getSkillPerformance(activeTest.answers || []);     // Đọc xem user sai ở các câu nào để làm report các loại kỹ năng
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
