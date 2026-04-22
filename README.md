@@ -167,7 +167,7 @@ Then set only these local-only values in your shell or `.env.local`:
 
 ```env
 SUPABASE_DB_PASSWORD=<production database password>
-SUPABASE_PROJECT_REF=awzhqoxnyxyciaoejjno
+SUPABASE_PROJECT_REF=afmeruhjbgqeebczpxzf
 ```
 
 ## 6. Fastest local setup
@@ -178,7 +178,7 @@ Typical `.env.local` override example:
 
 ```env
 SUPABASE_DB_PASSWORD=<production database password>
-SUPABASE_PROJECT_REF=awzhqoxnyxyciaoejjno
+SUPABASE_PROJECT_REF=afmeruhjbgqeebczpxzf
 ```
 
 Then run:
@@ -287,7 +287,7 @@ Example `.env.local`:
 LOCAL_MONGODB_URI=mongodb://127.0.0.1:27017/ronansat-local
 REMOTE_MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db-name>?retryWrites=true&w=majority
 SUPABASE_DB_PASSWORD=<production database password>
-SUPABASE_PROJECT_REF=awzhqoxnyxyciaoejjno
+SUPABASE_PROJECT_REF=afmeruhjbgqeebczpxzf
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:55321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<local supabase anon key>
 SUPABASE_SERVICE_ROLE_KEY=<local supabase service role key>
