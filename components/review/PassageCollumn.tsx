@@ -16,8 +16,10 @@ export default function PassageColumn({ q }: PassageColumnProps) {
 
   return (
     <div className="w-full self-stretch overflow-visible bg-surface-white md:h-full md:min-h-0 md:w-1/2 md:overflow-y-auto md:border-r-4 md:border-ink-fg">
-      <div className="px-2 py-4 sm:p-6 lg:p-10">
-        <BrandLogo className="mb-5" labelClassName="text-xl sm:text-2xl" size={40} priority />
+      <div className="px-3 py-4 sm:p-6 lg:px-8 lg:py-7">
+        <div className="mb-5 flex justify-start pt-1 sm:mb-6 sm:pt-2">
+          <BrandLogo labelClassName="text-xl sm:text-2xl" size={40} priority />
+        </div>
 
         <QuestionExtraBlock
           extra={q.extra}
@@ -25,7 +27,7 @@ export default function PassageColumn({ q }: PassageColumnProps) {
           titleClassName="mb-2 text-center font-sans text-[16px] font-normal leading-[1.35] text-ink-fg"
         />
 
-        <div className="rounded-2xl px-2 py-4 font-[Georgia,serif] text-[16px] leading-[1.85] text-ink-fg selection:bg-primary sm:p-6">
+        <div className="rounded-2xl border-2 border-ink-fg bg-surface-white px-4 py-5 font-[Georgia,serif] text-[16px] leading-[1.85] text-ink-fg selection:bg-primary sm:p-6">
           {renderHtmlLatexContent(q.passage)}
         </div>
       </div>

@@ -118,10 +118,10 @@ export default function AnswerDetails({ q, ans }: AnswerDetailsProps) {
 
         if (isCorrectChoice) {
           wrapClassName = "bg-primary text-ink-fg";
-          circleClassName = "bg-surface-white text-ink-fg";
+          circleClassName = "bg-accent-2 text-white";
           Icon = CheckCircle;
         } else if (isUserChoice) {
-          wrapClassName = "bg-accent-3 text-white";
+          wrapClassName = "bg-[#F4A261] font-bold text-ink-fg";
           circleClassName = "bg-ink-fg text-white";
           Icon = XCircle;
         }

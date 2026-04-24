@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, BookOpen, Calculator, ChevronDown, ChevronUp, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, BookOpen, Calculator, ChevronDown, ChevronUp, MapPin, X } from "lucide-react";
 import "katex/dist/katex.min.css";
 
 
@@ -11,6 +11,7 @@ import { ReportErrorButton } from "@/components/report/ReportErrorButton";
 import PassageColumn from "@/components/review/PassageCollumn";
 import AnswerDetails from "@/components/review/AnswerDetails";
 import SelectableTextPanel, { type TextAnnotation } from "@/components/test/SelectableTextPanel";
+import { getTestingRoomThemePreset } from "@/lib/testingRoomTheme";
 import type { ReviewAnswer } from "@/types/review";
 import { renderHtmlLatexContent } from "@/utils/renderContent";
 
@@ -23,6 +24,17 @@ interface ReviewPopupProps {
   expandedExplanation: string | undefined;
   loadingExplanation: boolean;
   onExpandExplanation: (qId: string) => void;
+  navigation?: {
+    moduleName?: string;
+    currentIndex: number;
+    totalQuestions: number;
+    questions: Array<{ _id: string }>;
+    answers: Record<string, string>;
+    statuses: Record<string, "correct" | "wrong" | "unanswered">;
+    onPrev: () => void;
+    onNext: () => void;
+    onJump: (index: number) => void;
+  };
   reportContext?: {
     testId: string;
     questionId: string;
@@ -42,15 +54,20 @@ export default function ReviewPopup({
   expandedExplanation,
   loadingExplanation,
   onExpandExplanation,
+  navigation,
   reportContext,
 }: ReviewPopupProps) {
   const q = ans?.questionId;
 
   const [showCalculator, setShowCalculator] = useState(false);
   const [isExplanationVisible, setIsExplanationVisible] = useState(false);
+  const [isGridOpen, setIsGridOpen] = useState(false);
   const [annotations, setAnnotations] = useState<TextAnnotation[]>([]);
 
   const isPageVariant = variant === "page";
+  const themePreset = getTestingRoomThemePreset("ronan");
+  const viewerTheme = themePreset.viewer;
+  const footerTheme = themePreset.footer;
 
   if (!q || (loadingQuestion && !ans.questionLoaded)) {
     return (
@@ -73,6 +90,9 @@ export default function ReviewPopup({
     q?.subject?.toLowerCase() === "math" ||
     q?.domain?.toLowerCase()?.includes("math") ||
     q?.section?.toLowerCase()?.includes("math");
+  const questionNumber = navigation ? navigation.currentIndex + 1 : reportContext?.questionNumber ?? 1;
+  const canGoPrev = Boolean(navigation && navigation.currentIndex > 0);
+  const canGoNext = Boolean(navigation && navigation.currentIndex < navigation.totalQuestions - 1);
 
   const handleToggleExplanation = () => {
     if (!isExplanationVisible && !expandedExplanation) {
@@ -83,7 +103,7 @@ export default function ReviewPopup({
 
   return (
     <div className={isPageVariant ? "flex min-h-screen flex-col bg-surface-white md:h-screen md:overflow-hidden" : "fixed inset-0 z-[100] flex flex-col bg-paper-bg"}>
-      <DesmosCalculator isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
+      <DesmosCalculator theme="ronan" isOpen={showCalculator} onClose={() => setShowCalculator(false)} />
 
       <header className="flex shrink-0 flex-col gap-3 border-b-4 border-ink-fg bg-surface-white px-4 py-3 sm:px-6 md:min-h-20 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0 flex-1">
@@ -141,7 +161,7 @@ export default function ReviewPopup({
         annotations={annotations}
         onChange={setAnnotations}
         sourceQuestionId={q._id}
-        className={`relative flex min-h-0 flex-1 bg-surface-white md:overflow-hidden ${isPageVariant ? "bg-surface-white" : "bg-paper-bg bg-dot-pattern"}`}
+        className={`relative mb-16 flex min-h-0 flex-1 bg-surface-white sm:mb-20 md:overflow-hidden ${isPageVariant ? "bg-surface-white" : "bg-paper-bg bg-dot-pattern"}`}
       >
         <div className="flex min-h-0 flex-1 flex-col items-stretch overflow-visible md:h-full md:flex-row md:overflow-hidden">
           <PassageColumn q={q} />
@@ -156,10 +176,14 @@ export default function ReviewPopup({
                 />
               ) : null}
 
-              <div className="overflow-hidden rounded-2xl bg-surface-white px-1 py-2 sm:px-6 sm:py-5">
-                <p className="font-[Georgia,serif] text-[15.5px] leading-[1.7] text-ink-fg sm:text-[17.5px]">
-                  {renderHtmlLatexContent(q.questionText || "")}
-                </p>
+              <div className="flex flex-col">
+                <QuestionNumberBar questionNumber={questionNumber} viewerTheme={viewerTheme} />
+
+                <div className={`testing-question-copy mt-3 px-4 pb-4 pt-4 text-[14px] leading-relaxed sm:px-6 sm:text-[15px] ${viewerTheme.readingFontClass} ${viewerTheme.promptClass}`}>
+                  <p>
+                    {renderHtmlLatexContent(q.questionText || "")}
+                  </p>
+                </div>
               </div>
 
               <AnswerDetails q={q} ans={ans} />
@@ -183,6 +207,195 @@ export default function ReviewPopup({
           </div>
         </div>
       </SelectableTextPanel>
+
+      {navigation ? (
+        <ReviewNavigationFooter
+          currentIndex={navigation.currentIndex}
+          totalQuestions={navigation.totalQuestions}
+          canGoPrev={canGoPrev}
+          canGoNext={canGoNext}
+          onPrev={navigation.onPrev}
+          onNext={navigation.onNext}
+          onJump={navigation.onJump}
+          footerTheme={footerTheme}
+          isGridOpen={isGridOpen}
+          setIsGridOpen={setIsGridOpen}
+          moduleName={navigation.moduleName}
+          questions={navigation.questions}
+          answers={navigation.answers}
+          statuses={navigation.statuses}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function QuestionNumberBar({
+  questionNumber,
+  viewerTheme,
+}: {
+  questionNumber: number;
+  viewerTheme: ReturnType<typeof getTestingRoomThemePreset>["viewer"];
+}) {
+  return (
+    <div className="shrink-0">
+      <div className="flex h-[30px] items-stretch sm:h-[32px]">
+        <div className={`flex w-[30px] shrink-0 select-none items-center justify-center text-sm font-black sm:w-[32px] ${viewerTheme.questionNumberClass}`}>
+          {questionNumber}
+        </div>
+        <div className={`flex flex-1 items-center px-2.5 sm:px-3 ${viewerTheme.questionToolbarClass}`} />
+      </div>
+
+      <div className={`mt-[2px] w-full ${viewerTheme.sectionRuleClass}`} />
+    </div>
+  );
+}
+
+function ReviewNavigationFooter({
+  currentIndex,
+  totalQuestions,
+  canGoPrev,
+  canGoNext,
+  onPrev,
+  onNext,
+  onJump,
+  footerTheme,
+  isGridOpen,
+  setIsGridOpen,
+  moduleName,
+  questions,
+  answers,
+  statuses,
+}: {
+  currentIndex: number;
+  totalQuestions: number;
+  canGoPrev: boolean;
+  canGoNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onJump: (index: number) => void;
+  footerTheme: ReturnType<typeof getTestingRoomThemePreset>["footer"];
+  isGridOpen: boolean;
+  setIsGridOpen: (isOpen: boolean) => void;
+  moduleName?: string;
+  questions: Array<{ _id: string }>;
+  answers: Record<string, string>;
+  statuses: Record<string, "correct" | "wrong" | "unanswered">;
+}) {
+  const disabledClass = "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none";
+  const headerTitle = moduleName ?? "Question Navigator";
+
+  return (
+    <>
+      {isGridOpen ? (
+        <>
+          <div className="fixed inset-0 z-30 bg-ink-fg/20" onClick={() => setIsGridOpen(false)} />
+
+          <div className={`fixed bottom-[82px] left-1/2 z-40 w-[min(94vw,595px)] -translate-x-1/2 px-4 pb-5 pt-4 transition-all animate-in fade-in zoom-in-95 duration-200 sm:bottom-[98px] sm:px-6 sm:pb-7 sm:pt-5 ${footerTheme.modalClass}`}>
+            <div className={`flex items-start justify-between gap-4 pb-4 ${footerTheme.modalHeaderClass}`}>
+              <div className="w-8 shrink-0" />
+              <h3 className={`flex-1 text-center text-lg leading-[1.05] tracking-tight sm:text-[22px] ${footerTheme.modalTitleClass}`}>
+                {headerTitle}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsGridOpen(false)}
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${footerTheme.modalCloseButtonClass}`}
+                aria-label="Close question navigator"
+              >
+                <X className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+
+            <div className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-3 text-[11px] font-medium sm:gap-x-6 sm:text-[12px] ${footerTheme.modalLegendClass}`}>
+              <div className="flex items-center gap-1.5">
+                <MapPin className={`h-4 w-4 ${footerTheme.currentPinClass}`} strokeWidth={2} />
+                <span>Current</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`h-4 w-4 bg-surface-white ${footerTheme.unansweredLegendClass}`} />
+                <span>Unanswered</span>
+              </div>
+            </div>
+
+            <div className="mx-auto mt-4 flex max-h-[196px] w-full max-w-[500px] flex-wrap justify-start gap-x-3 gap-y-4 overflow-y-auto px-1 pb-1 pt-4 sm:gap-x-[14px] sm:gap-y-[18px] sm:pt-5">
+              {questions.map((question, index) => {
+                const isAnswered = !!answers[question._id];
+                const isCurrent = index === currentIndex;
+                const status = statuses[question._id] ?? (isAnswered ? "correct" : "unanswered");
+                const statusClass =
+                  status === "correct"
+                    ? "border-2 border-ink-fg bg-primary text-ink-fg"
+                    : status === "wrong"
+                      ? "border-2 border-ink-fg bg-[#F4A261] font-bold text-ink-fg"
+                      : footerTheme.gridUnansweredClass;
+
+                return (
+                  <button
+                    key={question._id}
+                    type="button"
+                    onClick={() => {
+                      onJump(index);
+                      setIsGridOpen(false);
+                    }}
+                    className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-visible text-[13px] font-semibold transition-all sm:h-[30px] sm:w-[30px] sm:text-[14px] ${statusClass}`}
+                    aria-label={`Jump to question ${index + 1}`}
+                  >
+                    {isCurrent ? (
+                      <MapPin className={`pointer-events-none absolute -top-4 left-1/2 h-3.5 w-3.5 -translate-x-1/2 sm:-top-[18px] sm:h-4 sm:w-4 ${footerTheme.currentPinClass}`} strokeWidth={2} />
+                    ) : null}
+                    <span>{index + 1}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      <footer className={`fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-between gap-2 px-3 sm:h-20 sm:px-6 ${footerTheme.barClass}`}>
+        <div className="hidden min-w-0 flex-1 sm:block">
+          <span className={`hidden max-w-[7rem] truncate text-xs font-semibold sm:block sm:max-w-none sm:text-base ${footerTheme.displayNameClass}`}>
+            Ronan SAT
+          </span>
+        </div>
+
+        <div className="flex flex-1 items-center justify-start sm:justify-center">
+          <button
+            type="button"
+            onClick={() => setIsGridOpen(!isGridOpen)}
+            className={`${footerTheme.navigatorButtonClass} inline-flex max-w-full justify-center px-3 py-1.5 text-xs sm:w-auto sm:max-w-none sm:px-4 sm:py-2 sm:text-sm`}
+          >
+            <span className="sm:hidden">{currentIndex + 1}/{totalQuestions}</span>
+            <span className="hidden sm:inline">Question {currentIndex + 1} of {totalQuestions}</span>
+            <ChevronDown className={`ml-1.5 inline-block h-3.5 w-3.5 transition-transform sm:ml-2 sm:h-4 sm:w-4 ${isGridOpen ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+
+        <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={!canGoPrev}
+            className={`${footerTheme.secondaryNavButtonClass} ${disabledClass} px-3 py-1.5 text-xs sm:px-6 sm:text-sm`}
+            aria-label="Previous question"
+          >
+            <ArrowLeft className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!canGoNext}
+            className={`${footerTheme.primaryNavButtonClass} ${disabledClass} px-3 py-1.5 text-xs sm:px-6 sm:text-sm`}
+            aria-label="Next question"
+          >
+            <ArrowRight className="h-4 w-4 sm:hidden" />
+            <span className="hidden sm:inline">Next</span>
+          </button>
+        </div>
+      </footer>
+    </>
   );
 }
