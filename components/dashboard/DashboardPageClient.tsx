@@ -10,16 +10,13 @@
   import { useSession } from "@/lib/auth/client";
 
   import InitialTabBootReady from "@/components/InitialTabBootReady";
-  import LeaderboardTable from "@/components/dashboard/LeaderboardTable";
-  import LeaderboardTableSkeleton from "@/components/dashboard/LeaderboardTableSkeleton";
   import ImprovementTrendPanel from "@/components/dashboard/ImprovementTrendPanel";
   import RecentResultsList from "@/components/dashboard/RecentResultsList";
   import UserStatsPanel from "@/components/dashboard/UserStatsPanel";
   import UserStatsPanelSkeleton from "@/components/dashboard/UserStatsPanelSkeleton";
-  import { getCachedDashboardBundle } from "@/lib/dashboardCache";
-  import { preloadDashboardBundle, preloadInitialAppData } from "@/lib/startupPreload";
+  import { getCachedDashboardOverview } from "@/lib/dashboardCache";
+  import { preloadDashboardOverview, preloadInitialAppData } from "@/lib/startupPreload";
   import type { DashboardOverview } from "@/types/dashboard";
-  import type { LeaderboardEntry } from "@/types/testLibrary";
 
   export default function DashboardPageClient() {
     const router = useRouter();
@@ -31,21 +28,23 @@
       recentResults: [],
       trend: [],
     });
-    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasHydratedClientCache, setHasHydratedClientCache] = useState(false);
 
     useLayoutEffect(() => {
-      const cachedBundle = getCachedDashboardBundle();
+      const cachedOverview = getCachedDashboardOverview();
 
-      if (cachedBundle) {                        // Cache có dữ liệu thì lấy ra dùng luôn
-        setOverview(cachedBundle.overview);
-        setLeaderboard(cachedBundle.leaderboard);
+      if (cachedOverview) {                        // Cache có dữ liệu thì lấy ra dùng luôn
+        setOverview(cachedOverview);
         setLoading(false);
       }
 
       setHasHydratedClientCache(true);  // Biến nhớ kiểm tra đã đọc cache chưa, chỉ đọc trong lần đầu mở trang
     }, []);    // Check cache ngay lần đầu vào web only
+
+    useEffect(() => {
+      router.prefetch("/review");
+    }, [router]);
 
     useEffect(() => {
       if (!hasHydratedClientCache) {   // Chưa đọc cache/login thì ch làm gì
@@ -69,11 +68,10 @@
       let cancelled = false;     // Công tắc an toàn đề phòng user chuyển trang, tắt tab trong lúc lấy dữ liệu
 
       const loadDashboard = async () => {    // Lấy data dashboard
-        const cachedBundle = getCachedDashboardBundle();
+        const cachedOverview = getCachedDashboardOverview();
 
-        if (cachedBundle) {            // Check cache, lấy lại dữ liệu mới nhất mỗi khi có các biến của useEffect thay đổi
-          setOverview(cachedBundle.overview);
-          setLeaderboard(cachedBundle.leaderboard);
+        if (cachedOverview) {            // Check cache, lấy lại dữ liệu mới nhất mỗi khi có các biến của useEffect thay đổi
+          setOverview(cachedOverview);
           setLoading(false);
         } else {
           setLoading(true);
@@ -85,14 +83,13 @@
         });
 
         try {
-          const bundle = await preloadDashboardBundle();   // Lấy data
+          const nextOverview = await preloadDashboardOverview();   // Lấy data
 
           if (cancelled) {     // Nếu đang tải data mà user tắt => bật cancelled = true và k lấy data nữa
             return; 
           }
 
-          setOverview(bundle.overview);                   // Nếu user k tắt thì truyền data vào từng 
-          setLeaderboard(bundle.leaderboard);
+          setOverview(nextOverview);                   // Nếu user k tắt thì truyền data vào từng 
         } catch (error) {
           if (!cancelled) {
             console.error("Failed to load student dashboard", error);
@@ -145,7 +142,6 @@
               <ImprovementTrendPanel trend={overview.trend} />
               <RecentResultsList results={overview.recentResults} />
             </div>
-            <LeaderboardTable leaderboard={leaderboard} />
           </div>
         </main>
       </div>
@@ -181,7 +177,6 @@
                 </section>
               ))}
             </div>
-            <LeaderboardTableSkeleton />
           </div>
         </main>
       </div>

@@ -1,14 +1,15 @@
 import { getClientCache, setClientCache } from "@/lib/clientCache";
 import {
-  getCachedDashboardBundle,
+  getCachedDashboardOverview,
   getCachedDashboardUserResults,
-  setCachedDashboardBundle,
+  setCachedDashboardOverview,
   setCachedDashboardUserResults,
-  type DashboardBundle,
 } from "@/lib/dashboardCache";
 import type { Role } from "@/lib/permissions";
-import { fetchDashboardOverview, fetchDashboardUserResults, fetchLeaderboard } from "@/lib/services/dashboardService";
+import { fetchDashboardOverview, fetchDashboardUserResults } from "@/lib/services/dashboardService";
+import { fetchReviewResults } from "@/lib/services/reviewService";
 import { fetchTestsPage, getTestsClientCacheKey } from "@/lib/services/testLibraryService";
+import type { ReviewResult } from "@/types/review";
 import type { CachedTestsPayload } from "@/types/testLibrary";
 
 const FULL_LENGTH_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", { selectedPeriod: "All" });
@@ -20,6 +21,7 @@ const SECTIONAL_MATH_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", {
   selectedPeriod: "All",
   subject: "math",
 });
+const REVIEW_RESULTS_CACHE_KEY = "review:results";
 
 const preloadJobs = new Map<string, Promise<void>>();
 
@@ -43,21 +45,11 @@ function warmTestsPage(cacheKey: string, subject?: "reading" | "math") {
 }
 
 function warmDashboardStats() {
-  const cachedBundle = getCachedDashboardBundle();
-  if (cachedBundle?.overview !== undefined) {
+  if (getCachedDashboardOverview() !== undefined) {
     return Promise.resolve();
   }
 
   return fetchDashboardOverview();
-}
-
-function warmDashboardLeaderboard() {
-  const cachedBundle = getCachedDashboardBundle();
-  if (cachedBundle?.leaderboard !== undefined) {
-    return Promise.resolve();
-  }
-
-  return fetchLeaderboard();
 }
 
 function warmDashboardUserResults() {
@@ -68,24 +60,25 @@ function warmDashboardUserResults() {
   return fetchDashboardUserResults();
 }
 
-export async function preloadDashboardBundle() {
-  const cachedBundle = getCachedDashboardBundle();
-  if (cachedBundle) {
-    return cachedBundle;
+function warmReviewResults() {
+  if (getClientCache<ReviewResult[]>(REVIEW_RESULTS_CACHE_KEY) !== undefined) {
+    return Promise.resolve();
   }
 
-  const [overview, leaderboard] = await Promise.all([
-    fetchDashboardOverview(),
-    fetchLeaderboard(),
-  ]);
+  return fetchReviewResults().then((results) => {
+    setClientCache(REVIEW_RESULTS_CACHE_KEY, results);
+  });
+}
 
-  const bundle = {
-    overview,
-    leaderboard,
-  } satisfies DashboardBundle;
+export async function preloadDashboardOverview() {
+  const cachedOverview = getCachedDashboardOverview();
+  if (cachedOverview !== undefined) {
+    return cachedOverview;
+  }
 
-  setCachedDashboardBundle(bundle);
-  return bundle;
+  const overview = await fetchDashboardOverview();
+  setCachedDashboardOverview(overview);
+  return overview;
 }
 
 export async function preloadDashboardUserResults() {
@@ -102,11 +95,11 @@ export async function preloadDashboardUserResults() {
 async function preloadStudentAppData() {
   await Promise.allSettled([
     warmDashboardStats(),
-    warmDashboardLeaderboard(),
     warmDashboardUserResults(),
     warmTestsPage(FULL_LENGTH_CACHE_KEY),
     warmTestsPage(SECTIONAL_READING_CACHE_KEY, "reading"),
     warmTestsPage(SECTIONAL_MATH_CACHE_KEY, "math"),
+    warmReviewResults(),
   ]);
 }
 

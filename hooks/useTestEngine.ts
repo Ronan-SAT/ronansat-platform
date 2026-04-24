@@ -36,11 +36,9 @@ export const testStages = [
 function clearDashboardCaches() {
   const cacheKeys = [
     DASHBOARD_CACHE_KEYS.overview,
-    DASHBOARD_CACHE_KEYS.leaderboard,
     DASHBOARD_CACHE_KEYS.userResults,
     DASHBOARD_CACHE_KEYS.apiOverview,
     DASHBOARD_CACHE_KEYS.apiUserResults,
-    DASHBOARD_CACHE_KEYS.apiLeaderboard,
     "review:results",
   ];
 

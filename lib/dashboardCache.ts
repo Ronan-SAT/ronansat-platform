@@ -1,20 +1,13 @@
 import { getClientCache, setClientCache } from "@/lib/clientCache";
 import type { DashboardOverview } from "@/types/dashboard";
-import type { LeaderboardEntry, UserResultSummary } from "@/types/testLibrary";
+import type { UserResultSummary } from "@/types/testLibrary";
 
 export const DASHBOARD_CACHE_KEYS = {
   overview: "dashboard:overview",
-  leaderboard: "dashboard:leaderboard",
   userResults: "dashboard:user-results",
   apiOverview: "api:dashboard:overview",
-  apiLeaderboard: "api:dashboard:leaderboard",
   apiUserResults: "api:dashboard:results:all",
 } as const;
-
-export type DashboardBundle = {
-  overview: DashboardOverview;
-  leaderboard: LeaderboardEntry[];
-};
 
 function syncMirroredCache<T>(primaryKey: string, mirrorKey: string) {
   const primaryValue = getClientCache<T>(primaryKey);
@@ -32,26 +25,12 @@ function syncMirroredCache<T>(primaryKey: string, mirrorKey: string) {
   return primaryValue;
 }
 
-export function getCachedDashboardBundle() {
-  const overview = syncMirroredCache<DashboardOverview>(DASHBOARD_CACHE_KEYS.overview, DASHBOARD_CACHE_KEYS.apiOverview);
-  const leaderboard = syncMirroredCache<LeaderboardEntry[]>(
-    DASHBOARD_CACHE_KEYS.leaderboard,
-    DASHBOARD_CACHE_KEYS.apiLeaderboard,
-  );
-
-  if (overview === undefined || leaderboard === undefined) {
-    return undefined;
-  }
-
-  return {
-    overview,
-    leaderboard,
-  } satisfies DashboardBundle;
+export function getCachedDashboardOverview() {
+  return syncMirroredCache<DashboardOverview>(DASHBOARD_CACHE_KEYS.overview, DASHBOARD_CACHE_KEYS.apiOverview);
 }
 
-export function setCachedDashboardBundle(bundle: DashboardBundle) {
-  setClientCache(DASHBOARD_CACHE_KEYS.overview, bundle.overview);
-  setClientCache(DASHBOARD_CACHE_KEYS.leaderboard, bundle.leaderboard);
+export function setCachedDashboardOverview(overview: DashboardOverview) {
+  setClientCache(DASHBOARD_CACHE_KEYS.overview, overview);
 }
 
 export function getCachedDashboardUserResults() {

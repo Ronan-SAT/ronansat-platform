@@ -3,7 +3,7 @@ import { API_PATHS } from "@/lib/apiPaths";
 import api from "@/lib/axios";
 import { DASHBOARD_CACHE_KEYS } from "@/lib/dashboardCache";
 import type { DashboardOverview } from "@/types/dashboard";
-import type { LeaderboardEntry, UserResultSummary } from "@/types/testLibrary";
+import type { UserResultSummary } from "@/types/testLibrary";
 
 /** Shared options accepted by every service function in this module. */
 interface FetchOptions {
@@ -53,22 +53,3 @@ export async function fetchDashboardOverview(options?: FetchOptions): Promise<Da
   );
 }
 
-// ---------------------------------------------------------------------------
-// fetchLeaderboard
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the global leaderboard entries.
- */
-export async function fetchLeaderboard(
-  options?: FetchOptions,
-): Promise<LeaderboardEntry[]> {
-  return readThroughClientCache(
-    DASHBOARD_CACHE_KEYS.apiLeaderboard,
-    async () => {
-      const res = await api.get("/api/leaderboard");
-      return (res.data.leaderboard || []) as LeaderboardEntry[];
-    },
-    options,
-  );
-}
