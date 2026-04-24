@@ -10,6 +10,7 @@ type IntentPrefetchOptions = {
   prefetch: (signal: AbortSignal) => Promise<unknown> | void;
   disabled?: boolean;
   delayMs?: number;
+  touchDelayMs?: number;
 };
 
 export function useIntentPrefetch({
@@ -17,6 +18,7 @@ export function useIntentPrefetch({
   prefetch,
   disabled = false,
   delayMs = DEFAULT_HOVER_INTENT_DELAY_MS,
+  touchDelayMs = 0,
 }: IntentPrefetchOptions) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -48,12 +50,15 @@ export function useIntentPrefetch({
           return;
         }
 
-        completedIntentPrefetches.add(prefetchKey);
-        void Promise.resolve(prefetch(controller.signal)).catch((error) => {
-          if (!controller.signal.aborted) {
-            console.error("Intent prefetch failed", error);
-          }
-        });
+        void Promise.resolve(prefetch(controller.signal))
+          .then(() => {
+            completedIntentPrefetches.add(prefetchKey);
+          })
+          .catch((error) => {
+            if (!controller.signal.aborted) {
+              console.error("Intent prefetch failed", error);
+            }
+          });
       }, nextDelayMs);
     },
     [clearIntent, disabled, prefetch, prefetchKey],
@@ -66,6 +71,6 @@ export function useIntentPrefetch({
     onMouseLeave: () => clearIntent(),
     onFocus: () => startPrefetch(delayMs),
     onBlur: () => clearIntent(),
-    onTouchStart: () => startPrefetch(0),
+    onTouchStart: () => startPrefetch(touchDelayMs),
   };
 }

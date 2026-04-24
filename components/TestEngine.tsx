@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useTestingRoomTheme } from "@/hooks/useTestingRoomTheme";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 import { getTestingRoomThemePreset } from "@/lib/testingRoomTheme";
 import { useResizableDivider } from "@/hooks/useResizableDivider";
 import { useTestEngine } from "@/hooks/useTestEngine";
@@ -63,6 +64,22 @@ export default function TestEngine({ testId }: { testId: string }) {   // Khởi
 
   const { leftWidth, isDragging, containerRef, handleDividerMouseDown } = useResizableDivider(50);  // Công cụ cho kéo thay đổi kich thước bài test
   const discardExitHref = mode === "sectional" ? "/sectional" : "/full-length";  // Tính toán để nếu User thoát thì điều hướng về đâu
+  const isLastModule =
+    availableModules.length === 0 || availableModules[availableModules.length - 1].originalIndex === currentStageIndex;
+  const buttonText = mode === "sectional" ? "Submit Module" : isLastModule ? "Submit Test" : "Next Module";
+  const canIntentPrefetchReview =
+    !isSubmitting &&
+    answeredCurrentModuleQuestions >= minimumRequiredCurrentModuleAnswers &&
+    (mode === "sectional" || (mode === "full" && isLastModule));
+  const reviewHref = `/review?testId=${testId}&mode=${mode === "sectional" ? "sectional" : "full"}`;
+  const submitIntentPrefetchHandlers = useIntentPrefetch({
+    prefetchKey: `test-submit-review:${testId}:${mode}`,
+    disabled: !canIntentPrefetchReview,
+    touchDelayMs: 175,
+    prefetch: () => {
+      router.prefetch(reviewHref);
+    },
+  });
 
   if (loading) {
     return <SimpleLoading />;
@@ -87,16 +104,6 @@ export default function TestEngine({ testId }: { testId: string }) {   // Khởi
       </div>
     );
   }
-
-  const isLastModule =    
-    availableModules.length === 0 || availableModules[availableModules.length - 1].originalIndex === currentStageIndex;
-    // Check xem còn module nào tiếp theo không hoặc index của module hiện tại có trùng với chỉ số của module cuối k
-    // nếu 1 trong 2 đúng thì isLastModule = true
-
-  const buttonText = mode === "sectional" ? "Submit Module" : isLastModule ? "Submit Test" : "Next Module";
-  // nếu mode là sectional -> nút luôn hiện Submit Module
-  // là full-length thì hiện theo logic trên
-
 
   // Logic yêu cầu hoàn thành min câu để được nộp
   const confirmDescription =
@@ -151,9 +158,7 @@ export default function TestEngine({ testId }: { testId: string }) {   // Khởi
         buttonText={buttonText}
         confirmTitle={buttonText}
         confirmDescription={confirmDescription}
-        onSubmitIntent={() => {
-          router.prefetch(`/review?testId=${testId}&mode=${mode === "sectional" ? "sectional" : "full"}`);
-        }}
+        submitIntentPrefetchHandlers={submitIntentPrefetchHandlers}
         onLeave={() => router.push(mode === "sectional" ? "/sectional" : "/full-length")}
         reportContext={{
           testId,
