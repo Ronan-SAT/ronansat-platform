@@ -51,8 +51,34 @@ export async function fetchTestsPage(
   filters: TestLibraryFilters = {},
   options?: FetchOptions,
 ): Promise<CachedTestsPayload> {
-  const { sortBy, sortOrder } = getTestsQueryParams(sortOption);
   const cacheKey = getTestsClientCacheKey(page, limit, sortOption, filters);
+  return readThroughClientCache(
+    cacheKey,
+    () => fetchTestsPageFromApi(page, limit, sortOption, filters, options),
+    {
+      ...options,
+      persistForSession: true,
+    },
+  );
+}
+
+export async function prefetchTestsPage(
+  page: number,
+  limit: number,
+  sortOption: SortOption,
+  filters: TestLibraryFilters = {},
+) {
+  await fetchTestsPage(page, limit, sortOption, filters);
+}
+
+async function fetchTestsPageFromApi(
+  page: number,
+  limit: number,
+  sortOption: SortOption,
+  filters: TestLibraryFilters = {},
+  options?: FetchOptions,
+): Promise<CachedTestsPayload> {
+  const { sortBy, sortOrder } = getTestsQueryParams(sortOption);
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
@@ -68,17 +94,11 @@ export async function fetchTestsPage(
     params.set("subject", filters.subject);
   }
 
-  return readThroughClientCache(
-    cacheKey,
-    async () => {
-      const res = await api.get(`${API_PATHS.TESTS}?${params.toString()}`, { signal: options?.signal });
+  const res = await api.get(`${API_PATHS.TESTS}?${params.toString()}`, { signal: options?.signal });
 
-      return {
-        tests: (res.data.tests || []) as CachedTestsPayload["tests"],
-        totalPages: (res.data.pagination?.totalPages || 1) as number,
-        availablePeriods: (res.data.availablePeriods || ["All"]) as string[],
-      };
-    },
-    options,
-  );
+  return {
+    tests: (res.data.tests || []) as CachedTestsPayload["tests"],
+    totalPages: (res.data.pagination?.totalPages || 1) as number,
+    availablePeriods: (res.data.availablePeriods || ["All"]) as string[],
+  };
 }

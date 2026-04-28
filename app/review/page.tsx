@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import InitialTabBootReady from "@/components/InitialTabBootReady";
 import ReviewPageSkeleton from "@/components/ReviewPageSkeleton";
-import ReviewPopup from "@/components/ReviewPopup";
 import { ReviewErrorLog } from "@/components/review/ReviewErrorLog";
 import { ReviewReport } from "@/components/review/ReviewReport";
 import { ReviewResultsSidebar } from "@/components/review/ReviewResultsSidebar";
 import { useReviewPageController } from "@/components/review/useReviewPageController";
+import { fetchReviewQuestion, fetchReviewResult } from "@/lib/services/reviewService";
 
 function ReviewContent() {
   const router = useRouter();
@@ -41,6 +41,7 @@ function ReviewContent() {
           filteredResults={filteredResults}
           onChangeType={setTestType}
           onSelectTest={setActiveTestId}
+          onPrefetchTest={(resultId) => fetchReviewResult(resultId).then(() => undefined)}
         />
       ) : null}
 
@@ -82,6 +83,14 @@ function ReviewContent() {
               }
 
               router.push(`/review/question?${params.toString()}`);
+            }}
+            onPrefetchAnswer={({ resultId, answer }) => {
+              const questionId = answer.questionId?._id;
+              if (!questionId) {
+                return;
+              }
+
+              return fetchReviewQuestion(resultId, questionId).then(() => undefined);
             }}
           />
         ) : (

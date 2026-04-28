@@ -9,6 +9,7 @@ import {
   readStoredTestingRoomTheme,
   type TestingRoomTheme,
 } from "@/lib/testingRoomTheme";
+import { fetchUserSettings, updateTestingRoomTheme } from "@/lib/services/settingsService";
 
 export function useTestingRoomTheme() {
   const { data: session, status } = useSession();
@@ -23,16 +24,8 @@ export function useTestingRoomTheme() {
       setHasHydrated(true);
 
       if (status === "authenticated" && session?.user?.id) {
-        void fetch("/api/user/settings", { cache: "no-store" })   // no store -> Luôn lấy theme mới nhất, k dùng theme cũ 
-          .then(async (response) => {
-            if (!response.ok) {
-              return null;
-            }
-
-            // dòng dưới biến đổi response thành JSON và quy định kết quả sẽ chứa dạng {user: testingRoomTheme } nhưng cũng có ? => k thấy cũng k sao
-            const payload = (await response.json()) as { user?: { testingRoomTheme?: TestingRoomTheme } };
-            return payload.user?.testingRoomTheme;  // kết quả là remoteTheme ở bên dưới
-          })
+        void fetchUserSettings()
+          .then((payload) => payload.user?.testingRoomTheme)
           .then((remoteTheme) => {        // nếu máy chủ trả về 1 theme mới thì đè lên theme cũ
             if (remoteTheme) {
               setTheme(remoteTheme);
@@ -62,13 +55,7 @@ export function useTestingRoomTheme() {
     persistTestingRoomTheme(nextTheme);     //  Lưu xuống bộ nhớ trình duyệt
 
     if (status === "authenticated" && session?.user?.id) {
-      void fetch("/api/user/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ testingRoomTheme: nextTheme }),   // Lưu theme vào database
-      }).catch(() => undefined);
+      void updateTestingRoomTheme(nextTheme).catch(() => undefined);
     }
   };
 

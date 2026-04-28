@@ -50,7 +50,6 @@ export function useSectionalTestsController() {
   }, [pageSize]);
 
   useEffect(() => {
-    setSelectedPeriod("All");
     setPage(1);
   }, [moduleFilter]);
 
@@ -161,7 +160,7 @@ export function useSectionalTestsController() {
         setTests(nextPayload.tests);
         setUniquePeriods(nextPayload.availablePeriods);
         setTotalPages(nextPayload.totalPages);
-        setClientCache(cacheKey, nextPayload);
+        setClientCache(cacheKey, nextPayload, { persistForSession: true });
       } catch (error) {
         console.error("Failed to fetch tests", error);
       } finally {

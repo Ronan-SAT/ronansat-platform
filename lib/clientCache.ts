@@ -5,8 +5,9 @@ const STORAGE_EVICTION_BATCH_SIZE = 8;
 
 type CacheEntry<T> = {
   value: T;
-  expiresAt: number;
-  createdAt?: number;
+  expiresAt: number | null;
+  createdAt: number;
+  lastAccessedAt: number;
 };
 
 const memoryCache = new Map<string, CacheEntry<unknown>>();
@@ -18,7 +19,7 @@ function getStorageKey(key: string) {
 }
 
 function isExpired(entry: CacheEntry<unknown>) {
-  return entry.expiresAt <= Date.now();
+  return entry.expiresAt !== null && entry.expiresAt <= Date.now();
 }
 
 function getClientKeyFromStorageKey(storageKey: string) {
@@ -44,8 +45,17 @@ function isQuotaExceededError(error: unknown) {
   );
 }
 
+function normalizeEntry<T>(entry: CacheEntry<T>): CacheEntry<T> {
+  const now = Date.now();
+  return {
+    ...entry,
+    createdAt: typeof entry.createdAt === "number" ? entry.createdAt : now,
+    lastAccessedAt: now,
+  };
+}
+
 function getEntryTimestamp(entry: CacheEntry<unknown>) {
-  return entry.createdAt ?? entry.expiresAt;
+  return entry.lastAccessedAt ?? entry.createdAt ?? entry.expiresAt ?? 0;
 }
 
 function evictExpiredMemoryEntries() {
@@ -75,7 +85,7 @@ function getSessionStorageEntries() {
     .map((storageKey) => {
       try {
         const rawValue = window.sessionStorage.getItem(storageKey);
-        const entry = rawValue ? (JSON.parse(rawValue) as CacheEntry<unknown>) : undefined;
+        const entry = rawValue ? normalizeEntry(JSON.parse(rawValue) as CacheEntry<unknown>) : undefined;
         return { storageKey, entry };
       } catch {
         return { storageKey, entry: undefined };
@@ -90,7 +100,7 @@ function evictOldestStorageEntries(count: number) {
 
   const entries = getSessionStorageEntries();
   const expiredOrInvalidKeys = entries
-    .filter(({ entry }) => !entry || typeof entry.expiresAt !== "number" || isExpired(entry))
+    .filter(({ entry }) => !entry || (entry.expiresAt !== null && typeof entry.expiresAt !== "number") || isExpired(entry))
     .map(({ storageKey }) => storageKey);
 
   expiredOrInvalidKeys.forEach((storageKey) => {
@@ -129,17 +139,20 @@ function readStorageEntry<T>(key: string) {
     }
 
     const parsedValue = JSON.parse(rawValue) as CacheEntry<T>;
-    if (!parsedValue || typeof parsedValue !== "object" || typeof parsedValue.expiresAt !== "number") {
+    const hasValidExpiry = parsedValue?.expiresAt === null || typeof parsedValue?.expiresAt === "number";
+    if (!parsedValue || typeof parsedValue !== "object" || !hasValidExpiry) {
       window.sessionStorage.removeItem(getStorageKey(key));
       return undefined;
     }
 
-    if (isExpired(parsedValue as CacheEntry<unknown>)) {
+    const normalizedEntry = normalizeEntry(parsedValue);
+    if (isExpired(normalizedEntry as CacheEntry<unknown>)) {
       window.sessionStorage.removeItem(getStorageKey(key));
       return undefined;
     }
 
-    return parsedValue;
+    writeStorageEntry(key, normalizedEntry);
+    return normalizedEntry;
   } catch {
     return undefined;
   }
@@ -153,18 +166,17 @@ function writeStorageEntry<T>(key: string, entry: CacheEntry<T>) {
   try {
     window.sessionStorage.setItem(getStorageKey(key), JSON.stringify(entry));
   } catch (error) {
-    if (isQuotaExceededError(error)) {
-      evictOldestClientCacheEntries();
-
-      try {
-        window.sessionStorage.setItem(getStorageKey(key), JSON.stringify(entry));
-      } catch {
-        // Keep serving from memory if storage is still unavailable.
-      }
+    if (!isQuotaExceededError(error)) {
       return;
     }
 
-    // Ignore non-quota storage write failures and keep the in-memory cache only.
+    evictOldestClientCacheEntries();
+
+    try {
+      window.sessionStorage.setItem(getStorageKey(key), JSON.stringify(entry));
+    } catch {
+      // Keep serving from memory if storage is still unavailable.
+    }
   }
 }
 
@@ -174,6 +186,7 @@ export function getClientCache<T>(key: string): T | undefined {
     if (isExpired(memoryEntry)) {
       memoryCache.delete(key);
     } else {
+      memoryEntry.lastAccessedAt = Date.now();
       return memoryEntry.value as T;
     }
   }
@@ -187,15 +200,38 @@ export function getClientCache<T>(key: string): T | undefined {
   return storageEntry.value;
 }
 
-export function setClientCache<T>(key: string, value: T, ttlMs = DEFAULT_TTL_MS) {
-  const entry: CacheEntry<T> = {
+export type SetClientCacheOptions = {
+  ttlMs?: number;
+  persistForSession?: boolean;
+};
+
+function normalizeSetOptions(options?: number | SetClientCacheOptions): SetClientCacheOptions | undefined {
+  if (typeof options === "number") {
+    return { ttlMs: options };
+  }
+
+  return options;
+}
+
+function createCacheEntry<T>(value: T, options?: SetClientCacheOptions): CacheEntry<T> {
+  const now = Date.now();
+  return {
     value,
-    expiresAt: Date.now() + ttlMs,
-    createdAt: Date.now(),
+    expiresAt: options?.persistForSession ? null : now + (options?.ttlMs ?? DEFAULT_TTL_MS),
+    createdAt: now,
+    lastAccessedAt: now,
   };
+}
+
+export function setClientCache<T>(key: string, value: T, options?: number | SetClientCacheOptions) {
+  const entry = createCacheEntry(value, normalizeSetOptions(options));
 
   memoryCache.set(key, entry);
   writeStorageEntry(key, entry);
+}
+
+export function setSessionClientCache<T>(key: string, value: T) {
+  setClientCache(key, value, { persistForSession: true });
 }
 
 export function deleteClientCache(key: string) {
@@ -223,7 +259,7 @@ export function clearClientCache(keyPrefix?: string) {
     if (typeof window !== "undefined") {
       try {
         Object.keys(window.sessionStorage)
-          .filter((key) => key.startsWith("bluebook:"))
+          .filter((key) => key.startsWith(STORAGE_KEY_PREFIX))
           .forEach((key) => window.sessionStorage.removeItem(key));
       } catch {
         // Ignore storage cleanup failures and continue.
@@ -259,6 +295,7 @@ export function clearClientCache(keyPrefix?: string) {
 interface ReadThroughOptions {
   forceRefresh?: boolean;
   ttlMs?: number;
+  persistForSession?: boolean;
   timeoutMs?: number;
 }
 
@@ -303,7 +340,10 @@ export async function readThroughClientCache<T>(
   const request = withTimeout(Promise.resolve().then(load), options?.timeoutMs ?? DEFAULT_READ_TIMEOUT_MS, key)
     .then((value) => {
       if ((cacheWriteVersions.get(key) ?? 0) === requestVersion) {
-        setClientCache(key, value, options?.ttlMs);
+        setClientCache(key, value, {
+          ttlMs: options?.ttlMs,
+          persistForSession: options?.persistForSession,
+        });
       }
       if (inflightCache.get(key) === request) {
         inflightCache.delete(key);

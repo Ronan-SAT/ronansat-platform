@@ -1,12 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type FocusEventHandler,
+  type MouseEventHandler,
+  type TouchEventHandler,
+} from "react";
 
 const DEFAULT_HOVER_INTENT_DELAY_MS = 175;
-const completedIntentPrefetches = new Set<string>();
-const runningIntentPrefetches = new Set<string>();
+const completedPrefetchKeys = new Set<string>();
+const runningPrefetchKeys = new Set<string>();
 
-type IntentPrefetchOptions = {
+type ModernIntentPrefetchOptions = {
+  key: string;
+  enabled?: boolean;
+  delayMs?: number;
+  onPrefetch: () => Promise<unknown> | void;
+};
+
+type LegacyIntentPrefetchOptions = {
   prefetchKey: string;
   prefetch: (signal: AbortSignal) => Promise<unknown> | void;
   disabled?: boolean;
@@ -14,82 +28,93 @@ type IntentPrefetchOptions = {
   touchDelayMs?: number;
 };
 
-export function useIntentPrefetch({
-  prefetchKey,
-  prefetch,
-  disabled = false,
-  delayMs = DEFAULT_HOVER_INTENT_DELAY_MS,
-  touchDelayMs = 0,
-}: IntentPrefetchOptions) {
+type UseIntentPrefetchOptions = ModernIntentPrefetchOptions | LegacyIntentPrefetchOptions;
+
+export type IntentPrefetchHandlers<TElement extends HTMLElement = HTMLElement> = {
+  onMouseEnter: MouseEventHandler<TElement>;
+  onMouseLeave: MouseEventHandler<TElement>;
+  onFocus: FocusEventHandler<TElement>;
+  onBlur: FocusEventHandler<TElement>;
+  onTouchStart: TouchEventHandler<TElement>;
+};
+
+function getIntentConfig(options: UseIntentPrefetchOptions) {
+  if ("prefetchKey" in options) {
+    return {
+      key: options.prefetchKey,
+      enabled: !options.disabled,
+      delayMs: options.delayMs ?? DEFAULT_HOVER_INTENT_DELAY_MS,
+      touchDelayMs: options.touchDelayMs ?? 0,
+      onPrefetch: () => options.prefetch(new AbortController().signal),
+    };
+  }
+
+  return {
+    key: options.key,
+    enabled: options.enabled ?? true,
+    delayMs: options.delayMs ?? DEFAULT_HOVER_INTENT_DELAY_MS,
+    touchDelayMs: options.delayMs ?? DEFAULT_HOVER_INTENT_DELAY_MS,
+    onPrefetch: options.onPrefetch,
+  };
+}
+
+export function useIntentPrefetch<TElement extends HTMLElement = HTMLElement>(
+  options: UseIntentPrefetchOptions,
+): IntentPrefetchHandlers<TElement> {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const hasStartedRef = useRef(false);
+  const config = getIntentConfig(options);
+  const onPrefetchRef = useRef(config.onPrefetch);
+
+  useEffect(() => {
+    onPrefetchRef.current = config.onPrefetch;
+  }, [config.onPrefetch]);
 
   const clearIntent = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-
-    if (!hasStartedRef.current) {
-      abortRef.current?.abort();
-      abortRef.current = null;
-    }
   }, []);
 
-  const startPrefetch = useCallback(
-    (nextDelayMs: number) => {
-      if (disabled || completedIntentPrefetches.has(prefetchKey) || runningIntentPrefetches.has(prefetchKey)) {
+  const beginIntent = useCallback(
+    (delayMs: number) => {
+      if (!config.enabled || !config.key || completedPrefetchKeys.has(config.key) || runningPrefetchKeys.has(config.key)) {
         return;
       }
 
       clearIntent();
-      abortRef.current = new AbortController();
-      hasStartedRef.current = false;
-
       timeoutRef.current = setTimeout(() => {
-        const controller = abortRef.current;
         timeoutRef.current = null;
 
-        if (
-          !controller ||
-          controller.signal.aborted ||
-          completedIntentPrefetches.has(prefetchKey) ||
-          runningIntentPrefetches.has(prefetchKey)
-        ) {
+        if (!config.enabled || completedPrefetchKeys.has(config.key) || runningPrefetchKeys.has(config.key)) {
           return;
         }
 
-        hasStartedRef.current = true;
-        runningIntentPrefetches.add(prefetchKey);
-        void Promise.resolve(prefetch(controller.signal))
+        runningPrefetchKeys.add(config.key);
+        Promise.resolve(onPrefetchRef.current())
           .then(() => {
-            completedIntentPrefetches.add(prefetchKey);
+            completedPrefetchKeys.add(config.key);
           })
           .catch((error) => {
-            if (!controller.signal.aborted) {
-              console.error("Intent prefetch failed", error);
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("Intent prefetch failed", config.key, error);
             }
           })
           .finally(() => {
-            runningIntentPrefetches.delete(prefetchKey);
-            if (abortRef.current === controller) {
-              abortRef.current = null;
-            }
-            hasStartedRef.current = false;
+            runningPrefetchKeys.delete(config.key);
           });
-      }, nextDelayMs);
+      }, delayMs);
     },
-    [clearIntent, disabled, prefetch, prefetchKey],
+    [clearIntent, config.enabled, config.key],
   );
 
   useEffect(() => clearIntent, [clearIntent]);
 
   return {
-    onMouseEnter: () => startPrefetch(delayMs),
-    onMouseLeave: () => clearIntent(),
-    onFocus: () => startPrefetch(delayMs),
-    onBlur: () => clearIntent(),
-    onTouchStart: () => startPrefetch(touchDelayMs),
+    onMouseEnter: () => beginIntent(config.delayMs),
+    onMouseLeave: clearIntent,
+    onFocus: () => beginIntent(config.delayMs),
+    onBlur: clearIntent,
+    onTouchStart: () => beginIntent(config.touchDelayMs),
   };
 }

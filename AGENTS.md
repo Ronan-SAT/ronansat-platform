@@ -54,6 +54,21 @@ This file is the canonical agent-facing instruction document for repository-wide
 - Preserve role-aware behavior for `STUDENT` and `ADMIN` flows. Do not collapse role distinctions accidentally when editing auth, dashboard, or admin features.
 - Treat environment-backed integrations such as MongoDB, NextAuth, SMTP, and other external providers as configuration boundaries. Do not hardcode secrets, credentials, or provider-specific fallback values.
 
+## Client prefetch and test-engine rules
+
+- The app uses a custom client cache in `lib/clientCache.ts`; route-data prefetch must go through `readThroughClientCache` so page loads can join inflight work instead of duplicating API calls.
+- Preload and intent-prefetch data should be persisted for the browser session with `persistForSession: true`; sessionStorage survives normal reloads and clears when the tab/session ends.
+- Keep prefetch cache keys exactly aligned with page default state. For the test libraries, page-1 defaults are full-length `tests:1:15:createdAt:desc:All:all` and sectional reading `tests:1:15:createdAt:desc:All:reading`.
+- Do not data-prefetch forbidden or high-risk areas broadly: `/admin`, admin-role data, route-level `/test/*`, or bulk review explanations. Current product exceptions allow explicit hover intent on a concrete Start/Retake test action to warm that test payload, and explicit hover intent on a concrete review result/question/back/next target to warm that single result/question only.
+- Dashboard, full-length page 1, sectional page 1, and review summary are owned by `AppStartupPreloader`; do not add duplicate route-hover data prefetch for those destinations.
+- `AppStartupPreloader` may warm data before a hover occurs. If a hover prefetch appears to do nothing, first check whether startup preload or `sessionStorage` already filled the same `bluebook:*` cache key.
+- For hover-intent prefetch, cancel only the pending debounce timer before a request starts. Once a request has entered `readThroughClientCache`, do not abort it on `mouseleave` or unmount, because the destination page may already be sharing that inflight promise.
+- Use one-shot and running-key guards for intent prefetches. Mark a prefetch as completed only after the callback succeeds; failures should not permanently block retry in the same browser session.
+- Keep Next.js UI prefetch separate from data prefetch. Submit/Next Module hover in the test engine may call `router.prefetch()` for the review route only when it is actually possible to navigate there, and it must never trigger API/data prefetch before the submit mutation succeeds.
+- In the test engine, the 75% answered threshold is a manual early-submit/early-next-module gate only. Timer expiry must call `handleSubmit({ trigger: "timer", bypassCompletionGate: true })`, advance full-length modules when applicable, and submit final/sectional attempts with unanswered questions saved as `"Omitted"`.
+- Manual test-engine submit paths should pass `trigger: "manual"` explicitly. `isSubmittingRef` must remain the first duplicate-submission guard so timer and manual click races cannot create double submissions.
+- The results API currently validates that `answers` is non-empty, not that a minimum percentage was answered. If server-side validation is added later, keep it compatible with timer-triggered omitted-answer submissions.
+
 ## Documentation rules
 
 - Keep `README.md` aligned with any workflow, environment, or architecture changes that affect contributors.

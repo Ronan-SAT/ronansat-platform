@@ -6,6 +6,7 @@ import { LibraryFilterSidebar } from "@/components/dashboard/LibraryFilterSideba
 import { LibraryHeader } from "@/components/dashboard/LibraryHeader";
 import { LibraryPagination } from "@/components/dashboard/LibraryPagination";
 import { LibrarySelect } from "@/components/dashboard/LibrarySelect";
+import { prefetchTestsPage } from "@/lib/services/testLibraryService";
 import type { SortOption, TestListItem, UserResultSummary } from "@/types/testLibrary";
 
 type SectionalTestLibraryProps = {
@@ -42,6 +43,17 @@ export function SectionalTestLibrary({
   userResults,
 }: SectionalTestLibraryProps) {
   const accentClassName = "bg-accent-2 text-white";
+  const pageSize = 15;
+  const prefetchPage = (
+    nextPage: number,
+    nextSortOption = sortOption,
+    nextPeriod = selectedPeriod,
+    nextModuleFilter = moduleFilter,
+  ) =>
+    prefetchTestsPage(nextPage, pageSize, nextSortOption, {
+      selectedPeriod: nextPeriod,
+      subject: nextModuleFilter,
+    });
 
   return (
     <section className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
@@ -51,6 +63,8 @@ export function SectionalTestLibrary({
         options={uniquePeriods}
         selectedValue={selectedPeriod}
         allLabel="All drills"
+        intentKeyPrefix={`sectional-filter:${moduleFilter}:${sortOption}`}
+        onIntentPrefetch={(period) => prefetchPage(1, sortOption, period, moduleFilter)}
         onSelect={(period) => {
           setSelectedPeriod(period);
           setPage(1);
@@ -72,6 +86,8 @@ export function SectionalTestLibrary({
                 value={moduleFilter}
                 onValueChange={(value) => setModuleFilter(value as "reading" | "math")}
                 className="min-w-[15rem]"
+                intentKeyPrefix={`sectional-module:${selectedPeriod}:${sortOption}`}
+                onIntentPrefetch={(value) => prefetchPage(1, sortOption, selectedPeriod, value as "reading" | "math")}
                 options={[
                   { value: "reading", label: "Verbal" },
                   { value: "math", label: "Math" },
@@ -88,6 +104,8 @@ export function SectionalTestLibrary({
                   setPage(1);
                 }}
                 className="min-w-[15rem]"
+                intentKeyPrefix={`sectional-sort:${moduleFilter}:${selectedPeriod}`}
+                onIntentPrefetch={(value) => prefetchPage(1, value as SortOption, selectedPeriod, moduleFilter)}
                 options={[
                   { value: "newest", label: "Newest First" },
                   { value: "oldest", label: "Oldest First" },
@@ -133,6 +151,9 @@ export function SectionalTestLibrary({
                 totalPages={totalPages}
                 onPrevious={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
                 onNext={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+                intentKeyPrefix={`sectional-pagination:${moduleFilter}:${sortOption}:${selectedPeriod}`}
+                onPreviousIntent={() => prefetchPage(page - 1)}
+                onNextIntent={() => prefetchPage(page + 1)}
               />
             </>
           )}

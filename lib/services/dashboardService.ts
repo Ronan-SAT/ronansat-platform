@@ -5,25 +5,14 @@ import { DASHBOARD_CACHE_KEYS } from "@/lib/dashboardCache";
 import type { DashboardOverview } from "@/types/dashboard";
 import type { UserResultSummary } from "@/types/testLibrary";
 
-/** Shared options accepted by every service function in this module. */
 interface FetchOptions {
-  /** When true, skip the cache and always hit the network. */
   forceRefresh?: boolean;
   ttlMs?: number;
+  persistForSession?: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
 }
 
-// ---------------------------------------------------------------------------
-// fetchDashboardUserResults
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the current user's result history for the given time window.
- *
- * The cache key includes the `days` parameter so results for different windows
- * are stored independently and never collide.
- */
 export async function fetchDashboardUserResults(
   days?: number,
   options?: FetchOptions,
@@ -42,7 +31,7 @@ export async function fetchDashboardUserResults(
       const res = await api.get(`${API_PATHS.RESULTS}?${params.toString()}`, { signal: options?.signal });
       return (res.data.results || []) as UserResultSummary[];
     },
-    options,
+    { ...options, persistForSession: options?.persistForSession ?? true },
   );
 }
 
@@ -53,7 +42,6 @@ export async function fetchDashboardOverview(options?: FetchOptions): Promise<Da
       const res = await api.get(API_PATHS.USER_DASHBOARD, { signal: options?.signal });
       return res.data as DashboardOverview;
     },
-    options,
+    { ...options, persistForSession: options?.persistForSession ?? true },
   );
 }
-

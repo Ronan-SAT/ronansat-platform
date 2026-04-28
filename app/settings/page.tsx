@@ -9,6 +9,7 @@ import InitialTabBootReady from "@/components/InitialTabBootReady";
 import { useTestingRoomTheme } from "@/hooks/useTestingRoomTheme";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+import { fetchGroupAccessTokenStatus } from "@/lib/services/settingsService";
 import {
     getTestingRoomThemePreset,
     listTestingRoomThemePresets,
@@ -358,8 +359,8 @@ function GroupAccessTokenCard() {
         const loadStatus = async () => {
             try {
                 setLoading(true);
-                const response = await api.get<GroupAccessTokenStatus>(API_PATHS.USER_GROUP_ACCESS_TOKEN);
-                setStatus(response.data);
+                const response = await fetchGroupAccessTokenStatus();
+                setStatus(response);
             } catch (error) {
                 setMessage(getSettingsApiError(error, "Could not load your group access token."));
             } finally {

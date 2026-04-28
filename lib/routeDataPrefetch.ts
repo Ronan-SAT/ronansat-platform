@@ -1,16 +1,9 @@
-import type { Role } from "@/lib/permissions";
-import {
-  preloadDashboardRouteData,
-  preloadFullLengthRouteData,
-  preloadReviewRouteData,
-  preloadSectionalRouteData,
-} from "@/lib/startupPreload";
+import { fetchHallOfFamePage } from "@/lib/services/hallOfFameService";
+import { fetchReviewErrorLogPage, fetchReviewReasonCatalog } from "@/lib/services/reviewService";
+import { fetchGroupAccessTokenStatus, fetchUserSettings } from "@/lib/services/settingsService";
+import { fetchVocabBoard } from "@/lib/services/vocabService";
 
-type RoutePrefetchOptions = {
-  signal?: AbortSignal;
-};
-
-const BLOCKED_DATA_PREFETCH_PREFIXES = ["/test/"];
+const BLOCKED_ROUTE_SHELL_PREFETCH_PREFIXES = ["/test/"];
 
 function getUrl(href: string) {
   if (typeof window === "undefined") {
@@ -20,53 +13,29 @@ function getUrl(href: string) {
   return new URL(href, window.location.origin);
 }
 
-export function canPrefetchRouteData(href: string, role?: Role) {
-  if (role !== "STUDENT" && role !== "ADMIN") {
-    return false;
-  }
-
-  const url = getUrl(href);
-  const pathname = url.pathname;
-
-  if (BLOCKED_DATA_PREFETCH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix))) {
-    return false;
-  }
-
-  if (pathname === "/review" && url.searchParams.get("view") === "error-log") {
-    return false;
-  }
-
-  return pathname === "/dashboard" || pathname === "/full-length" || pathname === "/sectional" || pathname === "/review";
-}
+const ROUTE_PREFETCHERS: Record<string, () => Promise<void>> = {
+  "/review?view=error-log": async () => {
+    await Promise.all([
+      fetchReviewErrorLogPage({ testType: "full", status: "all", query: "", offset: 0, limit: 20 }),
+      fetchReviewReasonCatalog(),
+    ]);
+  },
+  "/vocab": async () => {
+    await fetchVocabBoard();
+  },
+  "/hall-of-fame": async () => {
+    await fetchHallOfFamePage(1, 8);
+  },
+  "/settings": async () => {
+    await Promise.all([fetchUserSettings(), fetchGroupAccessTokenStatus()]);
+  },
+};
 
 export function canPrefetchRouteShell(href: string) {
   const pathname = getUrl(href).pathname;
-  return !BLOCKED_DATA_PREFETCH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
+  return !BLOCKED_ROUTE_SHELL_PREFETCH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix));
 }
 
-export async function prefetchRouteData(href: string, role?: Role, options?: RoutePrefetchOptions) {
-  if (!canPrefetchRouteData(href, role) || options?.signal?.aborted) {
-    return;
-  }
-
-  const url = getUrl(href);
-
-  if (url.pathname === "/dashboard") {
-    await preloadDashboardRouteData(options);
-    return;
-  }
-
-  if (url.pathname === "/full-length") {
-    await preloadFullLengthRouteData(options);
-    return;
-  }
-
-  if (url.pathname === "/sectional") {
-    await preloadSectionalRouteData(options);
-    return;
-  }
-
-  if (url.pathname === "/review") {
-    await preloadReviewRouteData(options);
-  }
+export function getRouteDataPrefetcher(href: string) {
+  return ROUTE_PREFETCHERS[href];
 }

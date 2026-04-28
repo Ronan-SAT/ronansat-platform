@@ -160,6 +160,19 @@ function ReviewQuestionContent() {
     router.push(`/review/question?${params.toString()}`);
   };
 
+  const prefetchScopedModuleIndex = async (targetIndex: number) => {
+    if (targetIndex < 0 || targetIndex >= scopedModuleAnswers.length) {
+      return;
+    }
+
+    const nextQuestionId = scopedModuleAnswers[targetIndex]?.questionId?._id;
+    if (!resultId || !nextQuestionId) {
+      return;
+    }
+
+    await fetchReviewQuestion(resultId, nextQuestionId);
+  };
+
   const navigateWithinScopedModule = (direction: "prev" | "next") => {
     const targetIndex = direction === "next" ? scopedCurrentIndex + 1 : scopedCurrentIndex - 1;
     navigateToScopedModuleIndex(targetIndex);
@@ -219,6 +232,7 @@ function ReviewQuestionContent() {
                 onPrev: () => navigateWithinScopedModule("prev"),
                 onNext: () => navigateWithinScopedModule("next"),
                 onJump: navigateToScopedModuleIndex,
+                onPrefetchIndex: prefetchScopedModuleIndex,
               }
             : undefined
         }

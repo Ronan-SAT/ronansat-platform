@@ -11,11 +11,13 @@ import {
   fetchReviewQuestion,
   fetchReviewResult,
   fetchReviewResults,
-  REVIEW_RESULTS_CACHE_KEY,
+  REVIEW_CACHE_KEYS,
   updateReviewAnswerReason,
 } from "@/lib/services/reviewService";
 import type { ReviewAnswer, ReviewResult } from "@/types/review";
 import { filterReviewResultsByType } from "@/components/review/reviewPage.utils";
+
+const REVIEW_RESULTS_CACHE_KEY = REVIEW_CACHE_KEYS.results;
 
 type UseReviewPageControllerOptions = {
   activeView?: "results" | "error-log";
@@ -48,7 +50,7 @@ export function useReviewPageController({ activeView = "results" }: UseReviewPag
   const mergeResult = (nextResult: ReviewResult) => {
     setResults((currentResults) => {
       const mergedResults = currentResults.map((result) => (result._id === nextResult._id ? nextResult : result));
-      setClientCache(REVIEW_RESULTS_CACHE_KEY, mergedResults);
+      setClientCache(REVIEW_RESULTS_CACHE_KEY, mergedResults, { persistForSession: true });
       return mergedResults;
     });
   };
@@ -68,7 +70,7 @@ export function useReviewPageController({ activeView = "results" }: UseReviewPag
         };
       });
 
-      setClientCache(REVIEW_RESULTS_CACHE_KEY, mergedResults);
+      setClientCache(REVIEW_RESULTS_CACHE_KEY, mergedResults, { persistForSession: true });
       return mergedResults;
     });
   };
@@ -151,7 +153,7 @@ export function useReviewPageController({ activeView = "results" }: UseReviewPag
         }
 
         setResults(data);
-        setClientCache(REVIEW_RESULTS_CACHE_KEY, data);
+        setClientCache(REVIEW_RESULTS_CACHE_KEY, data, { persistForSession: true });
       } catch (error) {
         console.error(error);
       } finally {
@@ -347,7 +349,7 @@ export function useReviewPageController({ activeView = "results" }: UseReviewPag
     });
 
     setResults(nextResults);
-    setClientCache(REVIEW_RESULTS_CACHE_KEY, nextResults);
+    setClientCache(REVIEW_RESULTS_CACHE_KEY, nextResults, { persistForSession: true });
     setSelectedAnswer((current) => {
       if (!current || current.resultId !== resultId || current.answer.questionId?._id !== questionId) {
         return current;
@@ -366,7 +368,7 @@ export function useReviewPageController({ activeView = "results" }: UseReviewPag
       await updateReviewAnswerReason(resultId, questionId, normalizedReason);
     } catch (error) {
       setResults(previousResults);
-      setClientCache(REVIEW_RESULTS_CACHE_KEY, previousResults);
+      setClientCache(REVIEW_RESULTS_CACHE_KEY, previousResults, { persistForSession: true });
       throw error;
     }
   };

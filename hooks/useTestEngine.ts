@@ -5,28 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
-import { deleteClientCache } from "@/lib/clientCache";
+import { clearClientCache, deleteClientCache } from "@/lib/clientCache";
 import { DASHBOARD_CACHE_KEYS } from "@/lib/dashboardCache";
 import { REVIEW_RESULTS_CACHE_KEY } from "@/lib/services/reviewService";
+import { fetchTestEngineQuestions, type TestEngineQuestion } from "@/lib/services/testEngineService";
 import { preloadPostSubmitStudentData } from "@/lib/startupPreload";
-import type { QuestionExtra } from "@/lib/questionExtra";
 import { normalizeSectionName, VERBAL_SECTION } from "@/lib/sections";
 import { checkIsCorrect } from "@/utils/gradingHelper";
 import { useTimer } from "./useTimer";
 
-type TestQuestion = {
-  _id: string;
-  section: string;
-  module: number;
-  points?: number;
-  correctAnswer?: string;
-  questionType?: string;
-  sprAnswers?: string[];
-  questionText?: string;
-  passage?: string;
-  choices?: string[];
-  extra?: QuestionExtra | null;
-};
+type TestQuestion = TestEngineQuestion;
 
 export const testStages = [
   { section: VERBAL_SECTION, module: 1, duration: 32 * 60 },
@@ -46,6 +34,8 @@ function clearDashboardCaches() {
   ];
 
   cacheKeys.forEach((key) => deleteClientCache(key));
+  clearClientCache("review:result:");
+  clearClientCache("review:question:");
 }
 
 function getAnsweredQuestionCount(questions: TestQuestion[], answers: Record<string, string>) {
@@ -101,17 +91,12 @@ export function useTestEngine(testId: string) {
     const fetchQuestions = async () => {
       setLoading(true);
       try {
-        const res = await api.get(API_PATHS.getQuestionsByTestId(testId), {
-          headers: {
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
+        const fetchedQuestions = await fetchTestEngineQuestions({
+          testId,
+          mode: mode === "sectional" ? "sectional" : "full",
+          section: targetSection,
+          module: targetModule,
         });
-
-        const fetchedQuestions = (res.data.questions || []).map((question: TestQuestion) => ({
-          ...question,
-          section: normalizeSectionName(question.section),
-        }));
         setQuestions(fetchedQuestions);
         setCurrentIndex(0);
         setAnswers({});

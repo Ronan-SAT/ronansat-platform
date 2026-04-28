@@ -1,3 +1,7 @@
+"use client";
+
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
+
 type LibraryFilterSidebarProps = {
   title: string;
   accentClassName: string;
@@ -5,6 +9,8 @@ type LibraryFilterSidebarProps = {
   selectedValue: string;
   allLabel: string;
   onSelect: (value: string) => void;
+  intentKeyPrefix?: string;
+  onIntentPrefetch?: (value: string) => Promise<void> | void;
 };
 
 export function LibraryFilterSidebar({
@@ -14,6 +20,8 @@ export function LibraryFilterSidebar({
   selectedValue,
   allLabel,
   onSelect,
+  intentKeyPrefix,
+  onIntentPrefetch,
 }: LibraryFilterSidebarProps) {
   return (
     <aside className="workbook-panel self-start overflow-hidden">
@@ -27,22 +35,59 @@ export function LibraryFilterSidebar({
           const active = selectedValue === option;
 
           return (
-            <button
+            <LibraryFilterButton
               key={option}
-              type="button"
-              onClick={() => onSelect(option)}
+              option={option}
+              active={active}
+              allLabel={allLabel}
+              onSelect={onSelect}
+              intentKeyPrefix={intentKeyPrefix}
+              onIntentPrefetch={onIntentPrefetch}
               className={[
                 "min-w-max shrink-0 rounded-2xl border-2 border-ink-fg px-4 py-3 text-left brutal-shadow-sm workbook-press sm:min-w-[11rem] lg:w-full lg:min-w-0 lg:flex-none",
                 active ? `${accentClassName} font-bold` : "bg-surface-white text-ink-fg",
               ].join(" ")}
-            >
-              <span className="block text-xs font-bold uppercase tracking-[0.18em]">
-                {option === "All" ? allLabel : option}
-              </span>
-            </button>
+            />
           );
         })}
       </div>
     </aside>
+  );
+}
+
+function LibraryFilterButton({
+  option,
+  active,
+  allLabel,
+  onSelect,
+  intentKeyPrefix,
+  onIntentPrefetch,
+  className,
+}: {
+  option: string;
+  active: boolean;
+  allLabel: string;
+  onSelect: (value: string) => void;
+  intentKeyPrefix?: string;
+  onIntentPrefetch?: (value: string) => Promise<void> | void;
+  className: string;
+}) {
+  const intentHandlers = useIntentPrefetch<HTMLButtonElement>({
+    key: `${intentKeyPrefix ?? "library-filter"}:${option}`,
+    enabled: !active && Boolean(onIntentPrefetch),
+    onPrefetch: () => onIntentPrefetch?.(option),
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(option)}
+      className={className}
+      {...intentHandlers}
+    >
+      <span className="block text-xs font-bold uppercase tracking-[0.18em]">
+        {option === "All" ? allLabel : option}
+      </span>
+    </button>
   );
 }

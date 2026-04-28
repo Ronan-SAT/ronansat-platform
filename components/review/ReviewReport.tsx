@@ -1,3 +1,5 @@
+"use client";
+
 // Báo cáo kết quả bài test
 
 
@@ -21,11 +23,13 @@ import {
   toTitleCase,
 } from "@/components/review/reviewPage.utils";
 import { SkillPerformanceCard } from "@/components/review/SkillPerformanceCard";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 
 type ReviewReportProps = {         // quy định định dạng phải có khi dùng ReviewReportProps
   testType: "full" | "sectional";
   activeTest?: ReviewResult;      // Toàn bộ dữ liệu bài test đó
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;   // Function để khi user ấn vào 1 ô ứng với 1 câu thì hiện ra để xem
+  onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
 };
 
 function AnswerGrid({  // Destructure món hàng mà component cha truyền xuống
@@ -34,12 +38,14 @@ function AnswerGrid({  // Destructure món hàng mà component cha truyền xu�
   resultId,
   testId,
   onSelectAnswer,
+  onPrefetchAnswer,
 }: {          // Ép buộc Dev phải truyền đúng loại data khi code
   answers: ReviewAnswer[];
   startIndex: number;
   resultId: string;
   testId?: string;
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;   // TS bắt buộc đây là 1 hàm nhận vào payload và k cần trả về anything
+  onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
 }) {
   if (!answers || answers.length === 0) {    // Chặn trước tránh map 1 biến null thì bị sập
     return <p className="mt-2 text-sm italic text-ink-fg/60">No data for this module.</p>;
@@ -58,20 +64,61 @@ function AnswerGrid({  // Destructure món hàng mà component cha truyền xu�
         }
 
         return (
-          <button
+          <AnswerGridButton
             key={`${answer.questionId?._id || index}-${startIndex + index}`}
+            answer={answer}
+            resultId={resultId}
+            testId={testId}
+            questionNumber={startIndex + index + 1}
             title={`Q${startIndex + index + 1} - ${isOmitted ? "Omitted" : answer.isCorrect ? "Correct" : "Incorrect"}`}
-            onClick={() => onSelectAnswer({ resultId, answer, questionNumber: startIndex + index + 1, testId })}
             className={`flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-black transition-all duration-150 brutal-shadow-sm workbook-press ${className}`}
-          >
-            {startIndex + index + 1}
-          </button>
+            onSelectAnswer={onSelectAnswer}
+            onPrefetchAnswer={onPrefetchAnswer}
+          />
         );
       })}
     </div>
   );
 }
 
+function AnswerGridButton({
+  answer,
+  resultId,
+  testId,
+  questionNumber,
+  title,
+  className,
+  onSelectAnswer,
+  onPrefetchAnswer,
+}: {
+  answer: ReviewAnswer;
+  resultId: string;
+  testId?: string;
+  questionNumber: number;
+  title: string;
+  className: string;
+  onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
+  onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
+}) {
+  const questionId = answer.questionId?._id;
+  const intentHandlers = useIntentPrefetch<HTMLButtonElement>({
+    key: `review-question:${resultId}:${questionId ?? questionNumber}`,
+    enabled: Boolean(questionId && !answer.questionLoaded && onPrefetchAnswer),
+    onPrefetch: () => onPrefetchAnswer?.({ resultId, answer }),
+  });
+
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={() => onSelectAnswer({ resultId, answer, questionNumber, testId })}
+      className={className}
+      {...intentHandlers}
+    >
+      {questionNumber}
+    </button>
+  );
+}
 function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "sectional"; activeTest: ReviewResult }) {   // Hàm hiện thẻ tóm tắt điểm số ở trên cùng, nhận vào Loại bài test và Thông tin activeTest (toàn bộ dữ liệu bài thi user đang chọn)
   const stats = getReviewStats(activeTest.answers || []);    // Truyền vào array chứa các choices của user để đếm số câu đúng
   const fullLengthScore = Math.max(400, activeTest.totalScore ?? activeTest.score ?? 0);   // Điểm tổng
@@ -113,9 +160,11 @@ function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "secti
 function FullLengthReport({
   activeTest,
   onSelectAnswer,
+  onPrefetchAnswer,
 }: {
   activeTest: ReviewResult;
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
+  onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
 }) {
   const { rwModule1, rwModule2, mathModule1, mathModule2 } = groupFullLengthAnswers(activeTest);  // Data ban đầu là vd 100 câu liền, hàm này ngắt thành từng module, section
 
@@ -149,7 +198,7 @@ function FullLengthReport({
                 </div>
               </div>
               <div className="mb-1 h-px bg-ink-fg/15" />
-               <AnswerGrid answers={answers} startIndex={startIndex} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} />
+               <AnswerGrid answers={answers} startIndex={startIndex} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} onPrefetchAnswer={onPrefetchAnswer} />
              </div>
            );
          })}
@@ -184,7 +233,7 @@ function FullLengthReport({
                 </div>
               </div>
               <div className="mb-1 h-px bg-ink-fg/15" />
-               <AnswerGrid answers={answers} startIndex={startIndex} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} />
+               <AnswerGrid answers={answers} startIndex={startIndex} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} onPrefetchAnswer={onPrefetchAnswer} />
              </div>
            );
          })}
@@ -197,9 +246,11 @@ function FullLengthReport({
 function SectionalReport({
   activeTest,
   onSelectAnswer,
+  onPrefetchAnswer,
 }: {
   activeTest: ReviewResult;
   onSelectAnswer: (payload: { resultId: string; answer: ReviewAnswer; questionNumber: number; testId?: string }) => void;
+  onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
 }) {
   const colors = getSectionalColors(activeTest.sectionalSubject || "");   // Lấy màu sắc riêng của môn học đó
   const answers = activeTest.answers || [];    // Lấy list câu trả lời của user+đáp án đúng của câu đó ra
@@ -225,13 +276,13 @@ function SectionalReport({
           </div>
         </div>
         <div className="mb-1 h-px bg-ink-fg/15" />
-        <AnswerGrid answers={answers} startIndex={0} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} />
+        <AnswerGrid answers={answers} startIndex={0} resultId={activeTest._id} testId={activeTest.testId?._id} onSelectAnswer={onSelectAnswer} onPrefetchAnswer={onPrefetchAnswer} />
       </div>
     </div>
   );
 }
 
-export function ReviewReport({ testType, activeTest, onSelectAnswer }: ReviewReportProps) {
+export function ReviewReport({ testType, activeTest, onSelectAnswer, onPrefetchAnswer }: ReviewReportProps) {
   if (!activeTest) {     // Nếu k thấy bài test nào để hiện Review
     return (
       <div className="flex h-full flex-col items-center justify-center text-ink-fg">
@@ -264,9 +315,9 @@ export function ReviewReport({ testType, activeTest, onSelectAnswer }: ReviewRep
       <ReviewSummaryCard testType={testType} activeTest={activeTest} />
       {skillData.length > 0 && <SkillPerformanceCard data={skillData} />}
       {testType === "full" ? (
-        <FullLengthReport activeTest={activeTest} onSelectAnswer={onSelectAnswer} />
+        <FullLengthReport activeTest={activeTest} onSelectAnswer={onSelectAnswer} onPrefetchAnswer={onPrefetchAnswer} />
       ) : (
-        <SectionalReport activeTest={activeTest} onSelectAnswer={onSelectAnswer} />
+        <SectionalReport activeTest={activeTest} onSelectAnswer={onSelectAnswer} onPrefetchAnswer={onPrefetchAnswer} />
       )}
 
       <div className="flex flex-wrap items-center gap-4 px-1 pb-4">

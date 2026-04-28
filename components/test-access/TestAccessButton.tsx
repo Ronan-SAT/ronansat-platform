@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { TestTokenDialog } from "@/components/test-access/TestTokenDialog";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 import { useTestAccess } from "@/components/test-access/useTestAccess";
 
 type TestAccessButtonProps = {
@@ -15,6 +16,8 @@ type TestAccessButtonProps = {
   className: string;
   children: ReactNode;
   ariaLabel?: string;
+  prefetchKey?: string;
+  onIntentPrefetch?: () => Promise<unknown> | unknown;
 };
 
 export function TestAccessButton({
@@ -26,12 +29,21 @@ export function TestAccessButton({
   className,
   children,
   ariaLabel,
+  prefetchKey,
+  onIntentPrefetch,
 }: TestAccessButtonProps) {
   const access = useTestAccess({ testId, requiresToken });
+  const intentHandlers = useIntentPrefetch<HTMLAnchorElement | HTMLButtonElement>({
+    key: prefetchKey ?? `test-access:${href}`,
+    enabled: Boolean(onIntentPrefetch) && (!requiresToken || access.isUnlocked),
+    onPrefetch: async () => {
+      await onIntentPrefetch?.();
+    },
+  });
 
   if (!requiresToken || access.isUnlocked) {
     return (
-      <Link aria-label={ariaLabel} className={className} href={href}>
+      <Link aria-label={ariaLabel} className={className} href={href} {...intentHandlers}>
         {children}
       </Link>
     );

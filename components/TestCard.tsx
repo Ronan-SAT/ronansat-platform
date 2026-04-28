@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
 
 import DownloadPdfButton from "@/components/DownloadPdfButton";
 import { TestAccessButton } from "@/components/test-access/TestAccessButton";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 import { isVerbalSection, VERBAL_SECTION } from "@/lib/sections";
+import { fetchReviewResult } from "@/lib/services/reviewService";
+import { prefetchTestEngineQuestions } from "@/lib/services/testEngineService";
 import type { TestListItem, UserResultSummary } from "@/types/testLibrary";
 
 interface TestCardProps {
@@ -25,6 +30,8 @@ type ModuleActionProps = {
   testId: string;
   testTitle: string;
   requiresToken?: boolean;
+  sectionName: string;
+  moduleNumber: number;
 };
 
 function getResultTestId(result: UserResultSummary) {
@@ -66,6 +73,7 @@ export default function TestCard({
   moduleFilter,
   userResults = [],
 }: TestCardProps) {
+  const router = useRouter();
   const formattedSectionName = moduleFilter === "reading" ? VERBAL_SECTION : "Math";
   const sectionalStickerLabel = moduleFilter === "reading" ? "Verbal Drill" : "Math Drill";
 
@@ -143,6 +151,11 @@ export default function TestCard({
   const mod1Result = isSectional ? getModuleResult(1) : null;
   const mod2Result = isSectional ? getModuleResult(2) : null;
   const stickerClassName = isSectional ? "bg-accent-2 text-white" : "bg-primary text-ink-fg";
+  const fullStartHref = `/test/${test._id}?mode=full`;
+  const prefetchFullTest = () => {
+    router.prefetch(fullStartHref);
+    return prefetchTestEngineQuestions({ testId: test._id, mode: "full" });
+  };
 
   return (
     <div className="workbook-panel flex h-full flex-col overflow-hidden">
@@ -186,6 +199,8 @@ export default function TestCard({
               testId={test._id}
               testTitle={test.title}
               requiresToken={test.requiresToken}
+              sectionName={formattedSectionName}
+              moduleNumber={1}
             />
             <ModuleAction
               title="Module 2"
@@ -197,6 +212,8 @@ export default function TestCard({
               testId={test._id}
               testTitle={test.title}
               requiresToken={test.requiresToken}
+              sectionName={formattedSectionName}
+              moduleNumber={2}
             />
 
             <DownloadPdfButton
@@ -209,20 +226,24 @@ export default function TestCard({
         ) : latestFullLengthResult?._id ? (
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-3">
-              <Link
+              <PrefetchLink
                 href={`/review?mode=full&resultId=${latestFullLengthResult._id}`}
                 className="workbook-button workbook-button-secondary justify-center"
+                prefetchKey={`review-result:${latestFullLengthResult._id}`}
+                onIntentPrefetch={() => fetchReviewResult(latestFullLengthResult._id!)}
               >
                 {getFullLengthScore(latestFullLengthResult)} / 1600
-              </Link>
+              </PrefetchLink>
               <TestAccessButton
-                href={`/test/${test._id}?mode=full`}
+                href={fullStartHref}
                 testId={test._id}
                 testTitle={test.title}
                 requiresToken={test.requiresToken}
                 lockedLabel="Token"
                 className="workbook-button workbook-button-secondary justify-center px-0"
                 ariaLabel="Retake full-length test"
+                prefetchKey={`test-engine:${test._id}:full:retake`}
+                onIntentPrefetch={prefetchFullTest}
               >
                 <RotateCcw className="h-4 w-4" />
               </TestAccessButton>
@@ -236,11 +257,13 @@ export default function TestCard({
         ) : (
           <div className="flex flex-col gap-2">
             <TestAccessButton
-              href={`/test/${test._id}?mode=full`}
+              href={fullStartHref}
               testId={test._id}
               testTitle={test.title}
               requiresToken={test.requiresToken}
               className="workbook-button w-full justify-center"
+              prefetchKey={`test-engine:${test._id}:full:start`}
+              onIntentPrefetch={prefetchFullTest}
             >
               Start Practice
             </TestAccessButton>
@@ -281,7 +304,20 @@ function ModuleAction({
   testId,
   testTitle,
   requiresToken = false,
+  sectionName,
+  moduleNumber,
 }: ModuleActionProps) {
+  const router = useRouter();
+  const prefetchSectionalTest = () => {
+    router.prefetch(startHref);
+    return prefetchTestEngineQuestions({
+      testId,
+      mode: "sectional",
+      section: sectionName,
+      module: moduleNumber,
+    });
+  };
+
   return (
     <section className="rounded-2xl border-2 border-ink-fg bg-surface-white p-3.5 brutal-shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -298,9 +334,14 @@ function ModuleAction({
         </button>
       ) : result?._id && reviewHref ? (
         <div className="grid grid-cols-[minmax(0,1fr)_68px] gap-3">
-          <Link href={reviewHref} className="workbook-button workbook-button-secondary justify-center">
+          <PrefetchLink
+            href={reviewHref}
+            className="workbook-button workbook-button-secondary justify-center"
+            prefetchKey={`review-result:${result._id}`}
+            onIntentPrefetch={() => fetchReviewResult(result._id!)}
+          >
             {getSectionalScore(result)} / {scoreDenominator}
-          </Link>
+          </PrefetchLink>
           <TestAccessButton
             href={startHref}
             testId={testId}
@@ -309,6 +350,8 @@ function ModuleAction({
             lockedLabel="Token"
             className="workbook-button workbook-button-secondary justify-center px-0"
             ariaLabel={`Retake ${title.toLowerCase()}`}
+            prefetchKey={`test-engine:${testId}:sectional:${sectionName}:${moduleNumber}:retake`}
+            onIntentPrefetch={prefetchSectionalTest}
           >
             <RotateCcw className="h-4 w-4" />
           </TestAccessButton>
@@ -320,10 +363,43 @@ function ModuleAction({
           testTitle={testTitle}
           requiresToken={requiresToken}
           className="workbook-button w-full justify-center"
+          prefetchKey={`test-engine:${testId}:sectional:${sectionName}:${moduleNumber}:start`}
+          onIntentPrefetch={prefetchSectionalTest}
         >
           Start {title}
         </TestAccessButton>
       )}
     </section>
+  );
+}
+
+function PrefetchLink({
+  href,
+  className,
+  children,
+  prefetchKey,
+  onIntentPrefetch,
+  "aria-label": ariaLabel,
+}: {
+  href: string;
+  className: string;
+  children: ReactNode;
+  prefetchKey: string;
+  onIntentPrefetch: () => Promise<unknown> | unknown;
+  "aria-label"?: string;
+}) {
+  const router = useRouter();
+  const intentHandlers = useIntentPrefetch<HTMLAnchorElement>({
+    key: prefetchKey,
+    onPrefetch: async () => {
+      router.prefetch(href);
+      await onIntentPrefetch();
+    },
+  });
+
+  return (
+    <Link href={href} className={className} aria-label={ariaLabel} {...intentHandlers}>
+      {children}
+    </Link>
   );
 }

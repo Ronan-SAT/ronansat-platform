@@ -200,15 +200,19 @@ export function ReviewErrorLog({ testType, onViewQuestion, onUpdateReason }: Rev
   }, [sortColumn, sortDirection, visibleRows]);
 
   useEffect(() => {
-    setClientCache<ErrorLogCacheState>(cacheKey, {
-      query,
-      statusFilter,
-      page,
-      rows,
-      total,
-      sortColumn,
-      sortDirection,
-    });
+    setClientCache<ErrorLogCacheState>(
+      cacheKey,
+      {
+        query,
+        statusFilter,
+        page,
+        rows,
+        total,
+        sortColumn,
+        sortDirection,
+      },
+      { persistForSession: true },
+    );
   }, [cacheKey, page, query, rows, sortColumn, sortDirection, statusFilter, total]);
 
   useEffect(() => {

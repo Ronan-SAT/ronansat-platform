@@ -20,6 +20,7 @@ export type HallOfFamePage = {
 type FetchOptions = {
   forceRefresh?: boolean;
   ttlMs?: number;
+  persistForSession?: boolean;
   timeoutMs?: number;
   signal?: AbortSignal;
 };
@@ -28,7 +29,7 @@ export function getHallOfFameClientCacheKey(page: number, limit: number) {
   return `hall-of-fame:${page}:${limit}`;
 }
 
-export async function fetchHallOfFamePage(page: number, limit: number, options?: FetchOptions) {
+export async function fetchHallOfFamePage(page = 1, limit = 8, options?: FetchOptions) {
   const cacheKey = getHallOfFameClientCacheKey(page, limit);
   const params = new URLSearchParams({
     page: String(page),
@@ -39,8 +40,12 @@ export async function fetchHallOfFamePage(page: number, limit: number, options?:
     cacheKey,
     async () => {
       const response = await api.get(`${API_PATHS.STUDENTS}?${params.toString()}`, { signal: options?.signal });
-      return response.data as HallOfFamePage;
+      return {
+        students: response.data.students || [],
+        totalPages: response.data.totalPages || 1,
+        currentPage: response.data.currentPage || page,
+      } satisfies HallOfFamePage;
     },
-    options,
+    { ...options, persistForSession: options?.persistForSession ?? true },
   );
 }

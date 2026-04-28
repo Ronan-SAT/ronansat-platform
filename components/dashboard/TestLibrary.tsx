@@ -9,6 +9,7 @@ import { LibraryFilterSidebar } from "@/components/dashboard/LibraryFilterSideba
 import { LibraryHeader } from "@/components/dashboard/LibraryHeader";
 import { LibraryPagination } from "@/components/dashboard/LibraryPagination";
 import { LibrarySelect } from "@/components/dashboard/LibrarySelect";
+import { prefetchTestsPage } from "@/lib/services/testLibraryService";
 import type { SortOption, TestListItem, UserResultSummary } from "@/types/testLibrary";
 
 interface TestLibraryProps {
@@ -40,6 +41,10 @@ export default function TestLibrary({
   totalPages,
   userResults,
 }: TestLibraryProps) {
+  const pageSize = 15;
+  const prefetchPage = (nextPage: number, nextSortOption = sortOption, nextPeriod = selectedPeriod) =>
+    prefetchTestsPage(nextPage, pageSize, nextSortOption, { selectedPeriod: nextPeriod });
+
   return (
     <section className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
       <LibraryFilterSidebar
@@ -48,6 +53,8 @@ export default function TestLibrary({
         options={uniquePeriods}
         selectedValue={selectedPeriod}
         allLabel="All tests"
+        intentKeyPrefix={`full-filter:${sortOption}`}
+        onIntentPrefetch={(period) => prefetchPage(1, sortOption, period)}
         onSelect={(period) => {
           setSelectedPeriod(period);
           setPage(1);
@@ -75,6 +82,8 @@ export default function TestLibrary({
                   setPage(1);
                 }}
                 className="min-w-[15rem]"
+                intentKeyPrefix={`full-sort:${selectedPeriod}`}
+                onIntentPrefetch={(value) => prefetchPage(1, value as SortOption, selectedPeriod)}
                 options={[
                   { value: "newest", label: "Newest First" },
                   { value: "oldest", label: "Oldest First" },
@@ -114,6 +123,9 @@ export default function TestLibrary({
                 totalPages={totalPages}
                 onPrevious={() => setPage((currentPage: number) => Math.max(1, currentPage - 1))}
                 onNext={() => setPage((currentPage: number) => Math.min(totalPages, currentPage + 1))}
+                intentKeyPrefix={`full-pagination:${sortOption}:${selectedPeriod}`}
+                onPreviousIntent={() => prefetchPage(page - 1)}
+                onNextIntent={() => prefetchPage(page + 1)}
               />
             </>
           )}

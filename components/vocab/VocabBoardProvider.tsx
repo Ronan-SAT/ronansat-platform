@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSession } from "@/lib/auth/client";
-import { API_PATHS } from "@/lib/apiPaths";
 import { parseDraftToCardFields } from "@/components/vocab/flashCardUtils";
+import { fetchVocabBoard, persistVocabBoard } from "@/lib/services/vocabService";
 import {
   emptyVocabBoard,
   isVocabBoardEmpty,
@@ -36,7 +36,7 @@ type VocabBoardContextValue = {
   reorderColumns: (draggedColumnId: string, targetColumnId: string, position: "before" | "after") => void;
 };
 
-// React Context: Truyền dữ liệu qua loa phát thanh để bất kỳ đâu cũng access được thay vì phải truyền thủ công qua từng thành phần nhỏ
+// Shared board context keeps vocabulary state available across nested vocab components.
 const VocabBoardContext = createContext<VocabBoardContextValue | null>(null);
 
 function isResponseStatusError(error: unknown, status: number) {
@@ -52,36 +52,11 @@ async function wait(ms: number) {
 }
 
 async function persistBoardToServer(nextBoard: VocabBoardState) {
-  const response = await fetch(API_PATHS.USER_VOCAB_BOARD, {
-    method: "PUT",
-    credentials: "same-origin",
-    headers: {  
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ board: nextBoard }),
-  });
-
-  if (!response.ok) {
-    throw createResponseStatusError(response.status);
-  }
-
-  const payload = (await response.json()) as { board?: unknown };
-  return normalizeVocabBoard(payload.board);
+  return persistVocabBoard(nextBoard);
 }
 
 async function loadBoardFromServer() {
-  const response = await fetch(API_PATHS.USER_VOCAB_BOARD, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-  });
-
-  if (!response.ok) {
-    throw createResponseStatusError(response.status);
-  }
-
-  const payload = (await response.json()) as { board?: unknown };
-  return normalizeVocabBoard(payload.board);
+  return fetchVocabBoard();
 }
 
 export function VocabBoardProvider({ children }: { children: ReactNode }) {

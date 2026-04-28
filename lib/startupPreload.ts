@@ -1,5 +1,10 @@
 import { getClientCache } from "@/lib/clientCache";
-import { getCachedDashboardOverview, getCachedDashboardUserResults, setCachedDashboardOverview, setCachedDashboardUserResults } from "@/lib/dashboardCache";
+import {
+  getCachedDashboardOverview,
+  getCachedDashboardUserResults,
+  setCachedDashboardOverview,
+  setCachedDashboardUserResults,
+} from "@/lib/dashboardCache";
 import type { Role } from "@/lib/permissions";
 import { fetchDashboardOverview, fetchDashboardUserResults } from "@/lib/services/dashboardService";
 import { fetchHallOfFamePage } from "@/lib/services/hallOfFameService";
@@ -12,6 +17,10 @@ const FULL_LENGTH_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", { selected
 const SECTIONAL_READING_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", {
   selectedPeriod: "All",
   subject: "reading",
+});
+const SECTIONAL_MATH_CACHE_KEY = getTestsClientCacheKey(1, 15, "newest", {
+  selectedPeriod: "All",
+  subject: "math",
 });
 
 const preloadJobs = new Map<string, Promise<void>>();
@@ -32,10 +41,16 @@ function warmTestsPage(cacheKey: string, subject?: "reading" | "math", options?:
     return Promise.resolve();
   }
 
-  return fetchTestsPage(1, 15, "newest", {
-    selectedPeriod: "All",
-    subject,
-  }, options).then(() => undefined);
+  return fetchTestsPage(
+    1,
+    15,
+    "newest",
+    {
+      selectedPeriod: "All",
+      subject,
+    },
+    options,
+  ).then(() => undefined);
 }
 
 function warmDashboardStats(options?: PreloadOptions) {
@@ -58,7 +73,7 @@ function warmDashboardActivity(options?: PreloadOptions) {
   return preloadDashboardUserResults(30, options).then(() => undefined);
 }
 
-function warmDashboardLeaderboard(options?: PreloadOptions) {
+function warmHallOfFame(options?: PreloadOptions) {
   return fetchHallOfFamePage(1, 8, options).then(() => undefined);
 }
 
@@ -99,7 +114,7 @@ export async function preloadDashboardRouteData(options?: PreloadOptions) {
     warmDashboardStats(options),
     warmDashboardUserResults(options),
     warmDashboardActivity(options),
-    warmDashboardLeaderboard(options),
+    warmHallOfFame(options),
   ]);
 }
 
@@ -107,8 +122,11 @@ export function preloadFullLengthRouteData(options?: PreloadOptions) {
   return warmTestsPage(FULL_LENGTH_CACHE_KEY, undefined, options);
 }
 
-export function preloadSectionalRouteData(options?: PreloadOptions) {
-  return warmTestsPage(SECTIONAL_READING_CACHE_KEY, "reading", options);
+export async function preloadSectionalRouteData(options?: PreloadOptions) {
+  await Promise.allSettled([
+    warmTestsPage(SECTIONAL_READING_CACHE_KEY, "reading", options),
+    warmTestsPage(SECTIONAL_MATH_CACHE_KEY, "math", options),
+  ]);
 }
 
 export function preloadReviewRouteData(options?: PreloadOptions) {

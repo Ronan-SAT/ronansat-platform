@@ -21,10 +21,9 @@ import {
 } from "lucide-react";
 
 import BrandLogo from "@/components/BrandLogo";
-import { clearClientSessionState } from "@/lib/clearClientSessionState";
-import type { Role } from "@/lib/permissions";
-import { canPrefetchRouteData, canPrefetchRouteShell, prefetchRouteData } from "@/lib/routeDataPrefetch";
 import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
+import { clearClientSessionState } from "@/lib/clearClientSessionState";
+import { canPrefetchRouteShell, getRouteDataPrefetcher } from "@/lib/routeDataPrefetch";
 
 type NavItemConfig = {
   href: string;
@@ -283,9 +282,9 @@ export default function Navbar() {
                 key={item.href}
                 item={item}
                 pathname={pathname}
-                role={session.user.role}
                 searchParams={searchParams}
                 compact={false}
+                dataPrefetcher={!isAdmin ? getRouteDataPrefetcher(item.href) : undefined}
               />
             ))}
           </div>
@@ -312,7 +311,14 @@ export default function Navbar() {
         <div className="bg-dot-pattern overflow-x-auto px-2 py-2 sm:px-3 sm:py-3">
           <div className="flex min-w-max gap-1.5 sm:gap-2">
             {navItems.map((item) => (
-              <NavItem key={item.href} item={item} pathname={pathname} role={session.user.role} searchParams={searchParams} compact />
+              <NavItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                searchParams={searchParams}
+                compact
+                dataPrefetcher={!isAdmin ? getRouteDataPrefetcher(item.href) : undefined}
+              />
             ))}
             <button
               onClick={() => void handleSignOut()}
@@ -332,33 +338,33 @@ export default function Navbar() {
 function NavItem({
   item,
   pathname,
-  role,
   searchParams,
   compact,
+  dataPrefetcher,
 }: {
   item: NavItemConfig;
   pathname: string;
-  role?: Role;
   searchParams: ReturnType<typeof useSearchParams>;
   compact: boolean;
+  dataPrefetcher?: () => Promise<void>;
 }) {
   const matchesPath = item.matches.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const matchesQuery = item.queryKey ? searchParams.get(item.queryKey) === item.queryValue : true;
   const isErrorLogView = pathname === "/review" && searchParams.get("view") === "error-log";
   const active = item.queryKey ? matchesPath && matchesQuery : matchesPath && (!isErrorLogView || pathname !== "/review");
   const Icon = item.icon;
-  const shouldPrefetchData = canPrefetchRouteData(item.href, role);
-  const intentPrefetchHandlers = useIntentPrefetch({
-    prefetchKey: `route-data:${item.href}`,
-    disabled: !shouldPrefetchData,
-    prefetch: (signal) => prefetchRouteData(item.href, role, { signal }),
+  const intentHandlers = useIntentPrefetch<HTMLAnchorElement>({
+    key: `nav:${item.href}`,
+    enabled: !active && Boolean(dataPrefetcher),
+    onPrefetch: async () => {
+      await dataPrefetcher?.();
+    },
   });
 
   return (
     <Link
       href={item.href}
       prefetch={canPrefetchRouteShell(item.href)}
-      {...intentPrefetchHandlers}
       className={[
         active ? "border-4 border-ink-fg brutal-shadow-sm workbook-press" : "border-2 border-ink-fg brutal-shadow-sm workbook-press",
         compact
@@ -366,6 +372,7 @@ function NavItem({
           : "flex items-center gap-3 rounded-2xl px-3.5 py-2.5",
         active ? "bg-paper-bg text-ink-fg" : "bg-surface-white text-ink-fg",
       ].join(" ")}
+      {...intentHandlers}
     >
       <Icon className={compact ? "h-3.5 w-3.5 sm:h-4 sm:w-4" : "h-[1.15rem] w-[1.15rem]"} />
       <div className={compact ? "space-y-0.5" : "min-w-0"}>

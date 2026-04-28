@@ -11,6 +11,7 @@ import { ReportErrorButton } from "@/components/report/ReportErrorButton";
 import PassageColumn from "@/components/review/PassageCollumn";
 import AnswerDetails from "@/components/review/AnswerDetails";
 import SelectableTextPanel, { type TextAnnotation } from "@/components/test/SelectableTextPanel";
+import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
 import { getTestingRoomThemePreset } from "@/lib/testingRoomTheme";
 import type { ReviewAnswer } from "@/types/review";
 import { renderHtmlLatexContent } from "@/utils/renderContent";
@@ -34,6 +35,7 @@ interface ReviewPopupProps {
     onPrev: () => void;
     onNext: () => void;
     onJump: (index: number) => void;
+    onPrefetchIndex?: (index: number) => Promise<void> | void;
   };
   reportContext?: {
     testId: string;
@@ -217,6 +219,7 @@ export default function ReviewPopup({
           onPrev={navigation.onPrev}
           onNext={navigation.onNext}
           onJump={navigation.onJump}
+          onPrefetchIndex={navigation.onPrefetchIndex}
           footerTheme={footerTheme}
           isGridOpen={isGridOpen}
           setIsGridOpen={setIsGridOpen}
@@ -259,6 +262,7 @@ function ReviewNavigationFooter({
   onPrev,
   onNext,
   onJump,
+  onPrefetchIndex,
   footerTheme,
   isGridOpen,
   setIsGridOpen,
@@ -274,6 +278,7 @@ function ReviewNavigationFooter({
   onPrev: () => void;
   onNext: () => void;
   onJump: (index: number) => void;
+  onPrefetchIndex?: (index: number) => Promise<void> | void;
   footerTheme: ReturnType<typeof getTestingRoomThemePreset>["footer"];
   isGridOpen: boolean;
   setIsGridOpen: (isOpen: boolean) => void;
@@ -284,6 +289,16 @@ function ReviewNavigationFooter({
 }) {
   const disabledClass = "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none";
   const headerTitle = moduleName ?? "Question Navigator";
+  const previousIntentHandlers = useIntentPrefetch<HTMLButtonElement>({
+    key: `review-popup-prev:${questions[currentIndex - 1]?._id ?? currentIndex - 1}`,
+    enabled: canGoPrev && Boolean(onPrefetchIndex),
+    onPrefetch: () => onPrefetchIndex?.(currentIndex - 1),
+  });
+  const nextIntentHandlers = useIntentPrefetch<HTMLButtonElement>({
+    key: `review-popup-next:${questions[currentIndex + 1]?._id ?? currentIndex + 1}`,
+    enabled: canGoNext && Boolean(onPrefetchIndex),
+    onPrefetch: () => onPrefetchIndex?.(currentIndex + 1),
+  });
 
   return (
     <>
@@ -331,21 +346,17 @@ function ReviewNavigationFooter({
                       : footerTheme.gridUnansweredClass;
 
                 return (
-                  <button
+                  <ReviewGridJumpButton
                     key={question._id}
-                    type="button"
-                    onClick={() => {
-                      onJump(index);
-                      setIsGridOpen(false);
-                    }}
+                    questionId={question._id}
+                    index={index}
+                    isCurrent={isCurrent}
+                    footerTheme={footerTheme}
+                    onJump={onJump}
+                    onPrefetchIndex={onPrefetchIndex}
+                    setIsGridOpen={setIsGridOpen}
                     className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-visible text-[13px] font-semibold transition-all sm:h-[30px] sm:w-[30px] sm:text-[14px] ${statusClass}`}
-                    aria-label={`Jump to question ${index + 1}`}
-                  >
-                    {isCurrent ? (
-                      <MapPin className={`pointer-events-none absolute -top-4 left-1/2 h-3.5 w-3.5 -translate-x-1/2 sm:-top-[18px] sm:h-4 sm:w-4 ${footerTheme.currentPinClass}`} strokeWidth={2} />
-                    ) : null}
-                    <span>{index + 1}</span>
-                  </button>
+                  />
                 );
               })}
             </div>
@@ -379,6 +390,7 @@ function ReviewNavigationFooter({
             disabled={!canGoPrev}
             className={`${footerTheme.secondaryNavButtonClass} ${disabledClass} px-3 py-1.5 text-xs sm:px-6 sm:text-sm`}
             aria-label="Previous question"
+            {...previousIntentHandlers}
           >
             <ArrowLeft className="h-4 w-4 sm:hidden" />
             <span className="hidden sm:inline">Back</span>
@@ -390,6 +402,7 @@ function ReviewNavigationFooter({
             disabled={!canGoNext}
             className={`${footerTheme.primaryNavButtonClass} ${disabledClass} px-3 py-1.5 text-xs sm:px-6 sm:text-sm`}
             aria-label="Next question"
+            {...nextIntentHandlers}
           >
             <ArrowRight className="h-4 w-4 sm:hidden" />
             <span className="hidden sm:inline">Next</span>
@@ -397,5 +410,49 @@ function ReviewNavigationFooter({
         </div>
       </footer>
     </>
+  );
+}
+
+function ReviewGridJumpButton({
+  questionId,
+  index,
+  isCurrent,
+  className,
+  footerTheme,
+  onJump,
+  onPrefetchIndex,
+  setIsGridOpen,
+}: {
+  questionId: string;
+  index: number;
+  isCurrent: boolean;
+  className: string;
+  footerTheme: ReturnType<typeof getTestingRoomThemePreset>["footer"];
+  onJump: (index: number) => void;
+  onPrefetchIndex?: (index: number) => Promise<void> | void;
+  setIsGridOpen: (isOpen: boolean) => void;
+}) {
+  const intentHandlers = useIntentPrefetch<HTMLButtonElement>({
+    key: `review-popup-grid:${questionId}`,
+    enabled: !isCurrent && Boolean(onPrefetchIndex),
+    onPrefetch: () => onPrefetchIndex?.(index),
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        onJump(index);
+        setIsGridOpen(false);
+      }}
+      className={className}
+      aria-label={`Jump to question ${index + 1}`}
+      {...intentHandlers}
+    >
+      {isCurrent ? (
+        <MapPin className={`pointer-events-none absolute -top-4 left-1/2 h-3.5 w-3.5 -translate-x-1/2 sm:-top-[18px] sm:h-4 sm:w-4 ${footerTheme.currentPinClass}`} strokeWidth={2} />
+      ) : null}
+      <span>{index + 1}</span>
+    </button>
   );
 }

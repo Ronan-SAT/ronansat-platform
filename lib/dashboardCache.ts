@@ -14,12 +14,12 @@ function syncMirroredCache<T>(primaryKey: string, mirrorKey: string) {
   const mirrorValue = getClientCache<T>(mirrorKey);
 
   if (primaryValue === undefined && mirrorValue !== undefined) {
-    setClientCache(primaryKey, mirrorValue);
+    setClientCache(primaryKey, mirrorValue, { persistForSession: true });
     return mirrorValue;
   }
 
   if (primaryValue !== undefined && mirrorValue === undefined) {
-    setClientCache(mirrorKey, primaryValue);
+    setClientCache(mirrorKey, primaryValue, { persistForSession: true });
   }
 
   return primaryValue;
@@ -30,7 +30,7 @@ export function getCachedDashboardOverview() {
 }
 
 export function setCachedDashboardOverview(overview: DashboardOverview) {
-  setClientCache(DASHBOARD_CACHE_KEYS.overview, overview);
+  setClientCache(DASHBOARD_CACHE_KEYS.overview, overview, { persistForSession: true });
 }
 
 export function getCachedDashboardUserResults() {
@@ -38,5 +38,5 @@ export function getCachedDashboardUserResults() {
 }
 
 export function setCachedDashboardUserResults(results: UserResultSummary[]) {
-  setClientCache(DASHBOARD_CACHE_KEYS.userResults, results);
+  setClientCache(DASHBOARD_CACHE_KEYS.userResults, results, { persistForSession: true });
 }
