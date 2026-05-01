@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
 import katex from "katex";
 import { marked } from "marked";
 
@@ -129,6 +133,34 @@ const FRACTION_PATTERN = /\\frac/;
 const SUPERSCRIPT_PATTERN = /\^(\{[^}]+\}|\\[a-zA-Z]+|\S)/g;
 const NON_TALL_SUPERSCRIPT_PATTERN = /^(?:\{)?(?:\\circ|\\degree|\\deg|°)(?:\})?$/;
 const MATH_DELIMITER_PATTERN = /(?<!\\)(\$\$?)(.*?)(?<!\\)\1/gs;
+const BARE_LATEX_PATTERN =
+  /(?<![$\\])\\(?:frac|dfrac|tfrac|sqrt|left|right|cdot|times|div|pi|theta|alpha|beta|gamma|delta|lambda|mu|angle|triangle|overline|underline|bar|hat|vec|sin|cos|tan|log|ln|pm|leq|geq|neq|approx|degree|circ)(?:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\\[a-zA-Z]+|[+\-]?\d+(?:\.\d+)?|[a-zA-Z0-9]))*/g;
+const KATEX_DIST_DIR = path.join(process.cwd(), "node_modules", "katex", "dist");
+let cachedLocalKatexStyles: string | null = null;
+
+marked.setOptions({
+  async: false,
+  breaks: true,
+  gfm: true,
+});
+
+function getLocalKatexStyles(): string {
+  if (cachedLocalKatexStyles) {
+    return cachedLocalKatexStyles;
+  }
+
+  const cssPath = path.join(KATEX_DIST_DIR, "katex.min.css");
+  const css = readFileSync(cssPath, "utf8");
+  cachedLocalKatexStyles = css.replace(
+    /url\((["']?)fonts\/([^)"']+)\1\)/g,
+    (_match, _quote: string, fontFileName: string) => {
+      const fontUrl = pathToFileURL(path.join(KATEX_DIST_DIR, "fonts", fontFileName)).href;
+      return `url("${fontUrl}")`;
+    },
+  );
+
+  return cachedLocalKatexStyles;
+}
 
 function groupConsecutiveDisplayMathBlocks(html: string): string {
   return html.replace(
@@ -185,13 +217,20 @@ function parseText(
     return "";
   }
 
+  const normalizedLineBreaks = text
+    .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+    .replace(/<br\s*\/?>/gi, "<br>");
+
   const normalizedText = options?.promoteStandaloneMath
-    ? text.replace(/^\s*\$(?!\$)(.+?)\$(?!\$)\s*$/gm, (_, mathText: string) => {
+    ? normalizedLineBreaks.replace(/^\s*\$(?!\$)(.+?)\$(?!\$)\s*$/gm, (_, mathText: string) => {
         return `$$${mathText.trim()}$$`;
       })
-    : text;
+    : normalizedLineBreaks;
 
-  const parsedMath = normalizedText.replace(
+  const textWithSanitizedTables = sanitizeMarkdownTables(normalizedText);
+  const textWithBareLatexWrapped = wrapBareLatexOutsideDelimitedMath(textWithSanitizedTables);
+
+  const parsedMath = textWithBareLatexWrapped.replace(
     MATH_DELIMITER_PATTERN,
     (match, prefix, mathText) => {
       try {
@@ -216,7 +255,7 @@ function parseText(
     },
   );
 
-  const parsedHtml = marked.parse(parsedMath) as string;
+  const parsedHtml = addPdfTableClasses(marked.parse(parsedMath) as string);
 
   if (!options?.promoteStandaloneMath) {
     return parsedHtml.replace(/\\\$/g, "$");
@@ -233,6 +272,145 @@ function parseText(
       '<div class="display-math-block"><span class="katex-display">$1</span></div>',
     ),
   ).replace(/\\\$/g, "$");
+}
+
+function sanitizeMarkdownTables(text: string): string {
+  const lines = text.replace(/<br\s*\/?>/gi, "\n").split(/\r?\n/);
+  const output: string[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const currentLine = lines[index];
+    const nextLine = lines[index + 1];
+
+    if (isPipeTableRow(currentLine) && nextLine && isMarkdownTableSeparator(nextLine)) {
+      output.push(normalizePipeTableRow(currentLine));
+      output.push(nextLine);
+      index += 2;
+
+      while (index < lines.length && isPipeTableRow(lines[index])) {
+        output.push(...splitMarkdownTableRowOnBreaks(lines[index]));
+        index += 1;
+      }
+
+      continue;
+    }
+
+    if (isLoosePipeTableStart(lines, index)) {
+      const tableRows: string[] = [];
+      while (index < lines.length && isPipeTableRow(lines[index])) {
+        tableRows.push(lines[index]);
+        index += 1;
+      }
+
+      const [headerRow, ...bodyRows] = tableRows;
+      const columnCount = parsePipeTableCells(headerRow).length;
+      output.push(normalizePipeTableRow(headerRow));
+      output.push(`| ${Array.from({ length: columnCount }, () => "---").join(" | ")} |`);
+      for (const bodyRow of bodyRows) {
+        output.push(...splitMarkdownTableRowOnBreaks(bodyRow));
+      }
+
+      continue;
+    }
+
+    output.push(currentLine);
+    index += 1;
+  }
+
+  return output.join("\n");
+}
+
+function isPipeTableRow(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed.includes("|") || isMarkdownTableSeparator(trimmed)) {
+    return false;
+  }
+
+  return parsePipeTableCells(trimmed).length > 1;
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  return /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function isLoosePipeTableStart(lines: string[], index: number): boolean {
+  const currentLine = lines[index];
+  const nextLine = lines[index + 1];
+  if (!currentLine || !nextLine || !isPipeTableRow(currentLine) || !isPipeTableRow(nextLine)) {
+    return false;
+  }
+
+  const columnCount = parsePipeTableCells(currentLine).length;
+  return columnCount > 1 && parsePipeTableCells(nextLine).length === columnCount;
+}
+
+function parsePipeTableCells(row: string): string[] {
+  return row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function normalizePipeTableRow(row: string): string {
+  return `| ${parsePipeTableCells(row).join(" | ")} |`;
+}
+
+function splitMarkdownTableRowOnBreaks(row: string): string[] {
+  const cells = parsePipeTableCells(row);
+
+  const splitCells = cells.map((cell) =>
+    cell
+      .split(/<br\s*\/?>/i)
+      .map((part) => part.trim())
+      .filter(Boolean),
+  );
+  const rowCount = Math.max(1, ...splitCells.map((cellParts) => cellParts.length));
+
+  if (rowCount === 1) {
+    return [row];
+  }
+
+  return Array.from({ length: rowCount }, (_unused, rowIndex) => {
+    const nextCells = splitCells.map((cellParts) => cellParts[rowIndex] ?? "");
+    return `| ${nextCells.join(" | ")} |`;
+  });
+}
+
+function addPdfTableClasses(html: string): string {
+  return html
+    .replace(/<table>/g, '<table class="pdf-content-table">')
+    .replace(/<th>/g, '<th class="pdf-content-table__header">')
+    .replace(/<td>/g, '<td class="pdf-content-table__cell">');
+}
+
+function wrapBareLatexOutsideDelimitedMath(text: string): string {
+  let output = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(MATH_DELIMITER_PATTERN)) {
+    const matchIndex = match.index ?? 0;
+    output += wrapBareLatex(text.slice(lastIndex, matchIndex));
+    output += match[0];
+    lastIndex = matchIndex + match[0].length;
+  }
+
+  output += wrapBareLatex(text.slice(lastIndex));
+  return output;
+}
+
+function wrapBareLatex(text: string): string {
+  return text.replace(BARE_LATEX_PATTERN, (match) => {
+    const trimmed = match.trim();
+
+    if (!trimmed) {
+      return match;
+    }
+
+    return `$${trimmed}$`;
+  });
 }
 
 function renderInlineMath(mathText: string): string {
@@ -278,17 +456,18 @@ function normalizeChoices(question: RawQuestion): string[] {
 function buildQuestionExtraHtml(extra: QuestionExtra | null | undefined): string {
   const table = parseQuestionExtraTable(extra);
   if (table) {
+    const rows = expandTableRowsOnBreaks(table.rows);
     const titleHtml = table.title
-      ? `<div class="question-extra-title">${escapeHtml(table.title)}</div>`
+      ? `<div class="question-extra-title">${parseText(table.title, { loosenTallInlineMath: true })}</div>`
       : "";
     const headerHtml = table.headers
-      .map((header) => `<th>${escapeHtml(header)}</th>`)
+      .map((header) => `<th class="pdf-content-table__header">${parseText(header, { loosenTallInlineMath: true })}</th>`)
       .join("");
-    const rowsHtml = table.rows
+    const rowsHtml = rows
       .map(
         (row) => `
           <tr>
-            ${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}
+            ${row.map((cell) => `<td class="pdf-content-table__cell">${parseText(cell, { loosenTallInlineMath: true })}</td>`).join("")}
           </tr>
         `,
       )
@@ -297,7 +476,7 @@ function buildQuestionExtraHtml(extra: QuestionExtra | null | undefined): string
     return `
       <div class="question-extra-wrap question-extra-wrap--table">
         ${titleHtml}
-        <table>
+        <table class="pdf-content-table">
           <thead>
             <tr>${headerHtml}</tr>
           </thead>
@@ -319,6 +498,27 @@ function buildQuestionExtraHtml(extra: QuestionExtra | null | undefined): string
       ${svgMarkup}
     </div>
   `;
+}
+
+function expandTableRowsOnBreaks(rows: string[][]): string[][] {
+  return rows.flatMap((row) => {
+    const splitCells = row.map((cell) =>
+      cell
+        .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+        .split(/<br\s*\/?>/i)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    );
+    const rowCount = Math.max(1, ...splitCells.map((cellParts) => cellParts.length));
+
+    if (rowCount === 1) {
+      return [row];
+    }
+
+    return Array.from({ length: rowCount }, (_unused, rowIndex) =>
+      splitCells.map((cellParts) => cellParts[rowIndex] ?? ""),
+    );
+  });
 }
 
 function getNormalizedSectionLabel(section: string | undefined): string {
@@ -1824,31 +2024,51 @@ function buildStyles(): string {
       margin-top: 0.1in;
     }
 
+    .pdf-content-table,
     .question-card table {
       display: inline-table;
       width: auto;
       max-width: 100%;
-      margin: 0.05in auto 0.1in;
+      margin: 0.055in auto 0.12in;
       border-collapse: collapse;
       table-layout: auto;
       font-size: 0.132in;
       line-height: 1.22;
-      text-align: left;
+      text-align: center;
+      vertical-align: middle;
     }
 
+    .passage-body .pdf-content-table,
+    .question-text .pdf-content-table {
+      display: table;
+      margin-right: auto;
+      margin-left: auto;
+    }
+
+    .question-extra-wrap .pdf-content-table {
+      display: table;
+      margin-right: auto;
+      margin-left: auto;
+    }
+
+    .pdf-content-table th,
+    .pdf-content-table td,
     .question-card th,
     .question-card td {
       border: 1px solid #777777;
-      padding: 0.032in 0.045in;
-      vertical-align: top;
+      padding: 0.04in 0.07in;
+      vertical-align: middle;
       font-size: 0.132in;
       font-weight: 400;
       line-height: 1.22;
       white-space: normal;
+      text-align: center;
     }
 
+    .pdf-content-table th,
     .question-card th {
       font-weight: 600;
+      background: #f4f4f4;
     }
 
     .question-card img {
@@ -2174,12 +2394,7 @@ export async function generatePDFTemplate({
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>${escapeHtml(documentTitle || testTitle)}</title>
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css"
-          integrity="sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP"
-          crossorigin="anonymous"
-        />
+        <style>${getLocalKatexStyles()}</style>
         <style>${buildStyles().replaceAll("__ASSET_BASE__", normalizedAssetBaseUrl)}</style>
       </head>
       <body>

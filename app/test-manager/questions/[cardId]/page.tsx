@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { TestManagerQuestionEditor } from "@/components/test-manager/TestManagerQuestionEditor";
 import { getServerSession } from "@/lib/auth/server";
+import { testManagerQuestionService } from "@/lib/services/testManagerQuestionService";
 
 type PageProps = {
   params: Promise<{
@@ -21,5 +22,6 @@ export default async function TestManagerQuestionPage({ params }: PageProps) {
   }
 
   const { cardId } = await params;
-  return <TestManagerQuestionEditor cardId={cardId} />;
+  const initialData = await testManagerQuestionService.getEditorData(cardId, session);
+  return <TestManagerQuestionEditor cardId={cardId} initialData={initialData} />;
 }

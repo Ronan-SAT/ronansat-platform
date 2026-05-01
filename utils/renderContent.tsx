@@ -1,14 +1,15 @@
 /**
- * Renders text that may contain a mix of HTML markup and LaTeX math delimiters ($...$, $$...$$).
+ * Renders text that may contain a mix of HTML markup and LaTeX math delimiters
+ * ($...$, $$...$$, \(...\), \[...\]).
  * Plain-text segments are rendered via dangerouslySetInnerHTML so HTML tags in the database
  * are interpreted by the browser instead of being printed as raw text.
  * Math segments are rendered by react-latex-next.
  */
 
 import type { ReactNode } from "react";
-import Latex from "react-latex-next";
+import katex from "katex";
 
-const MATH_DELIMITER_PATTERN = /(?<!\\)(\$\$?)(.*?)(?<!\\)\1/gs;
+const MATH_DELIMITER_PATTERN = /(?<!\\)(\$\$?)(.*?)(?<!\\)\1|\\\(([\s\S]*?)(?<!\\)\\\)|\\\[([\s\S]*?)(?<!\\)\\\]/gs;
 const TALL_MATH_PATTERN = /\\(?:d?frac)|\^(?:\{[^}]+\}|\S)/;
 
 export function hasTallMath(text: string | undefined): boolean {
@@ -16,12 +17,20 @@ export function hasTallMath(text: string | undefined): boolean {
   return TALL_MATH_PATTERN.test(text);
 }
 
-function normalizeMath(delimiter: string, mathText: string): string {
+function normalizeMathText(delimiter: string, mathText: string): string {
   const normalizedMath = mathText.trim();
-  if (delimiter === "$" && hasTallMath(normalizedMath)) {
-    return `$\\displaystyle ${normalizedMath.replace(/\\frac/g, "\\dfrac")}$`;
+  if ((delimiter === "$" || delimiter === "\\(") && hasTallMath(normalizedMath)) {
+    return `\\displaystyle ${normalizedMath.replace(/\\frac/g, "\\dfrac")}`;
   }
-  return `${delimiter}${mathText}${delimiter}`;
+  return normalizedMath;
+}
+
+function renderKatexMarkup(delimiter: string, mathText: string) {
+  return katex.renderToString(normalizeMathText(delimiter, mathText), {
+    displayMode: delimiter === "$$" || delimiter === "\\[",
+    throwOnError: false,
+    strict: "ignore",
+  });
 }
 
 /**
@@ -36,8 +45,8 @@ export function renderHtmlLatexContent(text: string | undefined): ReactNode {
   let lastIndex = 0;
 
   for (const match of text.matchAll(MATH_DELIMITER_PATTERN)) {
-    const delimiter = match[1];
-    const mathText = match[2] ?? "";
+    const delimiter = match[1] ?? (match[3] !== undefined ? "\\(" : "\\[");
+    const mathText = match[2] ?? match[3] ?? match[4] ?? "";
     const matchIndex = match.index ?? 0;
     const plainHtml = text.slice(lastIndex, matchIndex);
 
@@ -51,8 +60,13 @@ export function renderHtmlLatexContent(text: string | undefined): ReactNode {
       );
     }
 
-    const renderedMath = normalizeMath(delimiter, mathText);
-    parts.push(<Latex key={`math-${matchIndex}-${delimiter}`}>{renderedMath}</Latex>);
+    parts.push(
+      <span
+        key={`math-${matchIndex}-${delimiter}`}
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: renderKatexMarkup(delimiter, mathText) }}
+      />,
+    );
     lastIndex = matchIndex + match[0].length;
   }
 

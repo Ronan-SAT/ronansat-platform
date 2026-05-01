@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, Search } from "lucide-react";
 
@@ -10,7 +10,7 @@ import { PaginatedStickyTableShell } from "@/components/ui/PaginatedStickyTableS
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TokenLockManager } from "@/components/test-manager/TokenLockManager";
 import { fetchTestManagerCatalogPage } from "@/lib/services/testManagerCatalogClient";
-import type { TestManagerCatalogRow, TestManagerCatalogSearchScope, TestManagerCatalogSortOption } from "@/types/testManager";
+import type { TestManagerCatalogRow, TestManagerCatalogSearchScope, TestManagerCatalogSortOption, TestManagerReviewFilter } from "@/types/testManager";
 
 const PAGE_SIZE = 20;
 
@@ -28,6 +28,36 @@ const SORT_OPTIONS: Array<{ value: TestManagerCatalogSortOption; label: string }
   { value: "question_asc", label: "Question # low-high" },
   { value: "question_desc", label: "Question # high-low" },
 ];
+
+const REVIEW_FILTER_OPTIONS: Array<{ value: TestManagerReviewFilter; label: string }> = [
+  { value: "all", label: "All questions" },
+  { value: "has_figure_or_table", label: "Has graph/table" },
+  { value: "keyword_needs_figure", label: "Keywords need check" },
+  { value: "markdown_table_payload", label: "Markdown table payload" },
+  { value: "bad_extra_payload", label: "Bad figure payload" },
+  { value: "math_dollar_latex", label: "Math dollar LaTeX" },
+  { value: "missing_math_delimiters", label: "Missing math delimiters" },
+  { value: "rhetorical_notes_format", label: "Rhetorical notes" },
+  { value: "has_keyword_any", label: "Any graph/table keyword" },
+];
+
+const REVIEW_FLAG_LABELS: Record<string, string> = {
+  has_figure_or_table: "Figure",
+  keyword_needs_figure: "Missing figure",
+  keyword_manual_check: "Manual keyword",
+  markdown_table_payload: "Markdown table",
+  bad_extra_payload: "Bad extra",
+  math_dollar_latex: "Math $",
+  missing_math_delimiters: "Naked LaTeX",
+  rhetorical_notes_format: "Notes",
+  keyword_with_shared_figure: "Shared figure",
+};
+
+const SUSPICION_LEVEL_LABELS: Record<string, { label: string; className: string }> = {
+  tier1: { label: "Tier 1 · Missing", className: "bg-accent-3 text-white" },
+  tier2: { label: "Tier 2 · Mismatch", className: "bg-primary text-ink-fg" },
+  tier3: { label: "Tier 3 · General", className: "bg-surface-white text-ink-fg" },
+};
 
 function getSearchPlaceholder(scope: TestManagerCatalogSearchScope) {
   switch (scope) {
@@ -70,22 +100,27 @@ function getQuestionTypeLabel(type: TestManagerCatalogRow["questionType"]) {
 function CatalogTableColGroup() {
   return (
     <colgroup>
-      <col className="w-[38%]" />
-      <col className="w-[14%]" />
-      <col className="w-[12%]" />
+      <col className="w-[30%]" />
+      <col className="w-[11%]" />
+      <col className="w-[9%]" />
+      <col className="w-[8%]" />
       <col className="w-[10%]" />
-      <col className="w-[13%]" />
-      <col className="w-[13%]" />
+      <col className="w-[12%]" />
+      <col className="w-[16%]" />
+      <col className="w-[14%]" />
     </colgroup>
   );
 }
 
 export function ManageTestsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [searchScope, setSearchScope] = useState<TestManagerCatalogSearchScope>("testTitle");
   const [sort, setSort] = useState<TestManagerCatalogSortOption>("updated_desc");
+  const [reviewFilter, setReviewFilter] = useState<TestManagerReviewFilter>((searchParams.get("reviewFilter") as TestManagerReviewFilter | null) ?? "all");
+  const [hideTier3, setHideTier3] = useState(searchParams.get("hideTier3") === "1");
   const [page, setPage] = useState(1);
   const [pendingPage, setPendingPage] = useState<number | null>(null);
   const [rows, setRows] = useState<TestManagerCatalogRow[]>([]);
@@ -110,7 +145,7 @@ export function ManageTestsPageContent() {
   useEffect(() => {
     setPage(1);
     setPendingPage(null);
-  }, [deferredQuery, searchScope, sort]);
+  }, [deferredQuery, searchScope, sort, reviewFilter, hideTier3]);
 
   useEffect(() => {
     if (targetPage > totalPages) {
@@ -130,6 +165,8 @@ export function ManageTestsPageContent() {
           query: deferredQuery,
           searchScope,
           sort,
+          reviewFilter,
+          hideTier3,
           offset: (targetPage - 1) * PAGE_SIZE,
           limit: PAGE_SIZE,
         });
@@ -161,7 +198,7 @@ export function ManageTestsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [deferredQuery, searchScope, sort, targetPage]);
+  }, [deferredQuery, searchScope, sort, reviewFilter, hideTier3, targetPage]);
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage === page || nextPage === pendingPage) {
@@ -169,6 +206,19 @@ export function ManageTestsPageContent() {
     }
 
     setPendingPage(nextPage);
+  };
+
+  const openQuestion = (questionId: string) => {
+    const params = new URLSearchParams({
+      queue: reviewFilter,
+      query: deferredQuery,
+      searchScope,
+      sort,
+    });
+    if (hideTier3) {
+      params.set("hideTier3", "1");
+    }
+    router.push(`/test-manager/questions/${questionId}?${params.toString()}`);
   };
 
   return (
@@ -194,7 +244,7 @@ export function ManageTestsPageContent() {
         <TokenLockManager />
 
         <section className="workbook-panel-muted shrink-0 p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_240px]">
             <label className="block">
               <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-ink-fg/70">Search</span>
               <div className="relative">
@@ -234,10 +284,36 @@ export function ManageTestsPageContent() {
                 </SelectContent>
               </Select>
             </label>
+
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.18em] text-ink-fg/70">Review Queue</span>
+              <Select value={reviewFilter} onValueChange={(value) => setReviewFilter(value as TestManagerReviewFilter)}>
+                <SelectTrigger className="h-[54px]">
+                  <SelectValue placeholder="Review queue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REVIEW_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-fg/70">
             <span className="workbook-sticker bg-surface-white text-ink-fg">{total} matches</span>
+            {reviewFilter !== "all" ? <span className="workbook-sticker bg-primary text-ink-fg">{REVIEW_FILTER_OPTIONS.find((option) => option.value === reviewFilter)?.label}</span> : null}
+            {reviewFilter === "keyword_needs_figure" ? (
+              <button
+                type="button"
+                onClick={() => setHideTier3((current) => !current)}
+                className={`rounded-full border-2 border-ink-fg px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] workbook-press ${hideTier3 ? "bg-accent-3 text-white" : "bg-surface-white text-ink-fg"}`}
+              >
+                {hideTier3 ? "Showing Tier 1/2" : "Hide Tier 3"}
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -247,7 +323,7 @@ export function ManageTestsPageContent() {
           loadingLabel="Loading page"
           pagination={totalPages > 1 ? <CompactPagination page={page} totalPages={totalPages} onChange={handlePageChange} /> : null}
         >
-          <table className="min-w-[1100px] w-full table-fixed text-sm text-ink-fg">
+          <table className="min-w-[1260px] w-full table-fixed text-sm text-ink-fg">
               <CatalogTableColGroup />
               <thead>
                 <tr className="bg-paper-bg">
@@ -256,19 +332,21 @@ export function ManageTestsPageContent() {
                   <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Question #</th>
                   <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Type</th>
                   <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Difficulty</th>
+                  <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Suspicion</th>
+                  <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Flags</th>
                   <th className="sticky top-0 z-10 h-12 whitespace-nowrap border-b-4 border-ink-fg bg-paper-bg px-4 text-left align-middle text-[11px] font-black uppercase tracking-[0.16em] text-ink-fg/75">Updated</th>
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {visibleRows.length === 0 && loadingRows ? (
                   <tr className="border-b-2 border-ink-fg/15 odd:bg-surface-white even:bg-paper-bg/60">
-                    <td colSpan={6} className="px-4 py-16 text-center text-sm font-semibold text-ink-fg/70">
+                    <td colSpan={8} className="px-4 py-16 text-center text-sm font-semibold text-ink-fg/70">
                       <span className="inline-flex items-center gap-2">Loading questions</span>
                     </td>
                   </tr>
                 ) : visibleRows.length === 0 ? (
                   <tr className="border-b-2 border-ink-fg/15 odd:bg-surface-white even:bg-paper-bg/60">
-                    <td colSpan={6} className="px-4 py-10 text-center text-sm font-semibold text-ink-fg/70">
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm font-semibold text-ink-fg/70">
                       No questions matched this search.
                     </td>
                   </tr>
@@ -278,11 +356,11 @@ export function ManageTestsPageContent() {
                       key={row.questionId}
                       role="link"
                       tabIndex={0}
-                      onClick={() => router.push(`/test-manager/questions/${row.questionId}`)}
+                      onClick={() => openQuestion(row.questionId)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          router.push(`/test-manager/questions/${row.questionId}`);
+                          openQuestion(row.questionId);
                         }
                       }}
                       className="cursor-pointer border-b-2 border-ink-fg/15 transition-colors odd:bg-surface-white even:bg-paper-bg/60 hover:bg-primary/35 focus-visible:bg-primary/35 focus-visible:outline-none"
@@ -290,6 +368,7 @@ export function ManageTestsPageContent() {
                       <td className="px-4 py-3 align-middle">
                         <div className="font-semibold text-ink-fg">{row.testTitle}</div>
                         {row.domain || row.skill ? <div className="mt-1 text-xs text-ink-fg/65">{[row.domain, row.skill].filter(Boolean).join(" • ")}</div> : null}
+                        {row.contentSnippet ? <div className="mt-1 line-clamp-2 text-xs leading-5 text-ink-fg/60">{row.contentSnippet}</div> : null}
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="font-semibold text-ink-fg">{row.section}</div>
@@ -303,6 +382,31 @@ export function ManageTestsPageContent() {
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <span className={`workbook-sticker ${getDifficultyClassName(row.difficulty)}`}>{row.difficulty}</span>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {row.suspicionLevel ? (
+                          <span className={`rounded-full border-2 border-ink-fg px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] ${SUSPICION_LEVEL_LABELS[row.suspicionLevel].className}`}>
+                            {SUSPICION_LEVEL_LABELS[row.suspicionLevel].label}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-ink-fg/45">--</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.reviewFlags.length > 0 ? (
+                            row.reviewFlags.slice(0, 4).map((flag) => (
+                              <span key={flag} className="rounded-full border-2 border-ink-fg bg-surface-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-ink-fg">
+                                {REVIEW_FLAG_LABELS[flag] ?? flag}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs font-semibold text-ink-fg/45">No flags</span>
+                          )}
+                        </div>
+                        {row.matchedKeywords.length > 0 ? (
+                          <div className="mt-2 line-clamp-1 text-[11px] text-ink-fg/60">{row.matchedKeywords.slice(0, 3).map((match) => match.keyword).join(", ")}</div>
+                        ) : null}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 align-middle text-sm font-semibold text-ink-fg/80">{formatUpdatedAt(row.updatedAt)}</td>
                     </tr>

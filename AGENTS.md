@@ -54,6 +54,22 @@ This file is the canonical agent-facing instruction document for repository-wide
 - Preserve role-aware behavior for `STUDENT` and `ADMIN` flows. Do not collapse role distinctions accidentally when editing auth, dashboard, or admin features.
 - Treat environment-backed integrations such as MongoDB, NextAuth, SMTP, and other external providers as configuration boundaries. Do not hardcode secrets, credentials, or provider-specific fallback values.
 
+## Secure PDF and Google Drive rules
+
+- Flattened PDFs are served from private Google Drive files through `app/api/test-pdfs/download/route.ts`; do not restore the old browser-side PDF generation flow for students.
+- `app/api/pdf-data/route.ts` must not expose raw question, answer, passage, or explanation payloads to students. If a debug/raw-data endpoint is ever needed, keep it admin-only and explicitly document the risk.
+- Supabase stores only PDF metadata, logical object keys, and Google Drive file ids in `test_pdf_assets`; never store Google OAuth client secrets or refresh tokens in Supabase.
+- `test_pdf_assets.object_key` is a logical path such as `test-pdfs/<testId>/full/v1.pdf`, not a public URL.
+- The app must stream PDFs through the authenticated API so auth, token-lock checks, and audit logging always run. Do not expose raw Google Drive links to students.
+- Token-locked tests must also protect PDF downloads. Client-side unlocked flags are not sufficient; the download route must verify the stored token server-side before streaming from Google Drive.
+- Every successful PDF download should insert an audit row into `test_pdf_download_events` with user, test, asset, mode, user-agent, and IP when available.
+- Google Drive publishing uses OAuth2 refresh-token credentials for the owning Drive account. Required env vars are `GOOGLE_DRIVE_OAUTH_CLIENT_ID`, `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET`, `GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN`, and `GOOGLE_DRIVE_PDF_ROOT_FOLDER_ID`.
+- If the Supabase local reset script fails with `spawn supabase ENOENT` on Windows, resolve the local CLI from `node_modules/.bin/supabase.cmd`. If it then fails on Docker pipes, Docker Desktop is not running or not installed.
+- `scripts/pdf/flattenPdfFolder.ts` is the image-only raster flattening pass. It reads static PDFs from `Desktop/flattened-pdfs`, writes separate output to `Desktop/image-only-pdfs`, preserves folder structure, and must not overwrite the source PDFs.
+- Image-only flattening rasterizes pages and rebuilds a PDF from JPEG images so text cannot be selected/copied. The default production profile is 135 DPI, grayscale, JPEG quality 62 to keep full-length downloads near the low-MB range; override only after benchmarking.
+- The image-only script must be resumable for overnight jobs: skip readable existing outputs by default, use `PDF_FORCE=1` only when regenerating, and write each output through a temporary `.partial` file before rename.
+- `scripts/pdf/publishDrivePdfAssets.ts` is the Drive publish pipeline. It defaults to dry-run; `--execute` is required before rasterizing, uploading, and mutating Supabase.
+
 ## Client prefetch and test-engine rules
 
 - The app uses a custom client cache in `lib/clientCache.ts`; route-data prefetch must go through `readThroughClientCache` so page loads can join inflight work instead of duplicating API calls.

@@ -2,18 +2,21 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, FileWarning, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Check, Eye, FileWarning, Loader2, Pencil, Plus, Save, SearchCheck, SkipForward, Trash2, X } from "lucide-react";
 
 import Loading from "@/components/Loading";
+import QuestionViewer from "@/components/QuestionViewer";
 import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
 import type { QuestionExtra } from "@/lib/questionExtra";
 import { VERBAL_SECTION } from "@/lib/sections";
+import { fetchNextTestManagerQuestion } from "@/lib/services/testManagerCatalogClient";
 import { readTestManagerQuestionCache, writeTestManagerQuestionCache } from "@/lib/testManagerQuestionCache";
 import type { TestManagerCard } from "@/lib/testManagerReports";
+import { buildQuestionReviewSuggestions, getMathDollarSuggestion, getReviewDiagnostics, type ReviewSuggestion, type TestManagerReviewFilter } from "@/lib/testManagerReview";
 import { renderHtmlLatexContent } from "@/utils/renderContent";
 
 type EditorQuestion = {
@@ -150,18 +153,91 @@ function EditablePanel({
   );
 }
 
-export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
+function getSuggestionTitle(kind: ReviewSuggestion["kind"]) {
+  switch (kind) {
+    case "markdown_table_payload":
+      return "Markdown table to CSV";
+    case "rhetorical_notes_format":
+      return "Rhetorical notes format";
+    case "missing_math_delimiters":
+      return "Missing math delimiters";
+    default:
+      return "Math dollar delimiter";
+  }
+}
+
+function DiffBlock({ suggestion }: { suggestion: ReviewSuggestion }) {
+  return (
+    <div className="space-y-3">
+      {suggestion.replacements.map((replacement, index) => (
+        <div key={`${replacement.field}-${index}`} className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-2xl border-2 border-ink-fg bg-surface-white p-3">
+            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-ink-fg/60">Original · {replacement.field}</div>
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-ink-fg">{replacement.original}</pre>
+          </div>
+          <div className="rounded-2xl border-2 border-ink-fg bg-primary/30 p-3">
+            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-ink-fg/60">Suggested</div>
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-ink-fg">{replacement.suggested}</pre>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function parseExtraText(extraText: string): QuestionExtra | null {
+  if (!extraText.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(extraText) as QuestionExtra;
+  } catch {
+    return null;
+  }
+}
+
+function buildPreviewQuestion(form: QuestionFormState, id: string) {
+  return {
+    _id: id,
+    questionType: form.questionType,
+    questionText: form.questionText,
+    passage: form.passage,
+    choices: form.choices,
+    extra: parseExtraText(form.extraText),
+  };
+}
+
+export function TestManagerQuestionEditor({ cardId, initialData }: { cardId: string; initialData?: EditorPayload }) {
   const router = useRouter();
-  const [data, setData] = useState<EditorPayload | null>(null);
-  const [form, setForm] = useState<QuestionFormState | null>(null);
-  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const queue = (searchParams.get("queue") ?? "all") as TestManagerReviewFilter;
+  const queueQuery = searchParams.get("query") ?? "";
+  const queueSearchScope = searchParams.get("searchScope") ?? "testTitle";
+  const queueSort = searchParams.get("sort") ?? "test_asc";
+  const queueHideTier3 = searchParams.get("hideTier3") === "1";
+  const [data, setData] = useState<EditorPayload | null>(initialData ?? null);
+  const [form, setForm] = useState<QuestionFormState | null>(initialData ? toFormState(initialData.question) : null);
+  const [loading, setLoading] = useState(!initialData);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [showStudentPreview, setShowStudentPreview] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (initialData?.question.questionId === cardId) {
+      setData(initialData);
+      setForm(toFormState(initialData.question));
+      writeTestManagerQuestionCache(cardId, initialData);
+      setLoading(false);
+      setError("");
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const cached = readTestManagerQuestionCache<EditorPayload>(cardId);
     if (cached) {
@@ -202,7 +278,7 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [cardId]);
+  }, [cardId, initialData]);
 
   const reportSummary = useMemo(() => {
     if (!data) {
@@ -226,6 +302,53 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
       return null;
     }
   }, [form?.extraText]);
+
+  const reviewInput = useMemo(() => {
+    if (!form) {
+      return null;
+    }
+
+    let extra: unknown;
+    try {
+      extra = form.extraText.trim() ? JSON.parse(form.extraText) : undefined;
+    } catch {
+      extra = undefined;
+    }
+
+    return {
+      questionText: form.questionText,
+      passage: form.passage,
+      choices: form.choices,
+      explanation: form.explanation,
+      domain: form.domain,
+      skill: form.skill,
+      section: form.section,
+      imageUrl: form.imageUrl,
+      extra,
+    };
+  }, [form]);
+
+  const reviewDiagnostics = useMemo(() => (reviewInput ? getReviewDiagnostics(reviewInput) : null), [reviewInput]);
+  const reviewSuggestions = useMemo(() => (reviewInput ? buildQuestionReviewSuggestions(reviewInput) : []), [reviewInput]);
+  const activeSuggestions = useMemo(() => {
+    if (queue === "math_dollar_latex") {
+      return reviewSuggestions.filter((suggestion) => suggestion.kind === "math_dollar_latex");
+    }
+    if (queue === "missing_math_delimiters") {
+      return reviewSuggestions.filter((suggestion) => suggestion.kind === "missing_math_delimiters");
+    }
+    if (queue === "markdown_table_payload") {
+      return reviewSuggestions.filter((suggestion) => suggestion.kind === "markdown_table_payload");
+    }
+    if (queue === "rhetorical_notes_format") {
+      return reviewSuggestions.filter((suggestion) => suggestion.kind === "rhetorical_notes_format");
+    }
+    return reviewSuggestions;
+  }, [queue, reviewSuggestions]);
+
+  const isGraphTableQueue = queue === "has_figure_or_table" || queue === "keyword_needs_figure" || queue === "bad_extra_payload" || queue === "has_keyword_any";
+  const isReviewQueue = queue !== "all";
+  const hasListContext = searchParams.has("queue") || searchParams.has("sort") || searchParams.has("query") || searchParams.has("searchScope");
 
   if (loading) {
     return <Loading showQuote={false} />;
@@ -318,40 +441,78 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
     });
   };
 
+  const buildPayload = (sourceForm: QuestionFormState) => {
+    const choices = sourceForm.choices.map((choice) => choice.trim()).filter(Boolean);
+    const sprAnswers = sourceForm.sprAnswers.map((answer) => answer.trim()).filter(Boolean);
+    const extra = sourceForm.extraText.trim() ? JSON.parse(sourceForm.extraText) : undefined;
+
+    return {
+      testId: sourceForm.testId,
+      section: sourceForm.section,
+      domain: sourceForm.domain.trim() || undefined,
+      skill: sourceForm.skill.trim() || undefined,
+      module: sourceForm.module,
+      questionType: sourceForm.questionType,
+      questionText: sourceForm.questionText,
+      passage: sourceForm.passage.trim() || undefined,
+      choices,
+      correctAnswer: sourceForm.correctAnswer.trim() || undefined,
+      sprAnswers,
+      explanation: sourceForm.explanation,
+      difficulty: sourceForm.difficulty,
+      points: sourceForm.points,
+      imageUrl: sourceForm.imageUrl.trim() || undefined,
+      extra,
+    };
+  };
+
+  const saveForm = async (sourceForm: QuestionFormState) => {
+    const payload = buildPayload(sourceForm);
+    const response = await api.patch<EditorPayload>(API_PATHS.getTestManagerQuestion(cardId), payload);
+    setData(response.data);
+    setForm(toFormState(response.data.question));
+    writeTestManagerQuestionCache(cardId, response.data);
+    setEditingField(null);
+  };
+
+  const goToNextQuestion = async () => {
+    const response = await fetchNextTestManagerQuestion({
+      currentQuestionId: cardId,
+      query: queueQuery,
+      searchScope: queueSearchScope as "testTitle" | "passage" | "options",
+      sort: queueSort as "updated_desc" | "updated_asc" | "test_asc" | "test_desc" | "question_asc" | "question_desc",
+      reviewFilter: queue,
+      hideTier3: queueHideTier3,
+    });
+
+    if (response.nextQuestionId) {
+      const params = new URLSearchParams({
+        queue,
+        query: queueQuery,
+        searchScope: queueSearchScope,
+        sort: queueSort,
+      });
+      if (queueHideTier3) {
+        params.set("hideTier3", "1");
+      }
+      router.push(`/test-manager/questions/${response.nextQuestionId}?${params.toString()}`);
+      return;
+    }
+
+    const params = new URLSearchParams({ reviewFilter: queue });
+    if (queueHideTier3) {
+      params.set("hideTier3", "1");
+    }
+    router.push(`/test-manager/manage-tests?${params.toString()}`);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage("");
     setError("");
 
     try {
-      const choices = form.choices.map((choice) => choice.trim()).filter(Boolean);
-      const sprAnswers = form.sprAnswers.map((answer) => answer.trim()).filter(Boolean);
-      const extra = form.extraText.trim() ? JSON.parse(form.extraText) : undefined;
-
-      const payload = {
-        testId: form.testId,
-        section: form.section,
-        domain: form.domain.trim() || undefined,
-        skill: form.skill.trim() || undefined,
-        module: form.module,
-        questionType: form.questionType,
-        questionText: form.questionText,
-        passage: form.passage.trim() || undefined,
-        choices,
-        correctAnswer: form.correctAnswer.trim() || undefined,
-        sprAnswers,
-        explanation: form.explanation,
-        difficulty: form.difficulty,
-        points: form.points,
-        imageUrl: form.imageUrl.trim() || undefined,
-        extra,
-      };
-
-      const response = await api.patch<EditorPayload>(API_PATHS.getTestManagerQuestion(cardId), payload);
-      setData(response.data);
-      setForm(toFormState(response.data.question));
-      writeTestManagerQuestionCache(cardId, response.data);
-      setEditingField(null);
+      await saveForm(form);
       setMessage("Question saved.");
     } catch (saveError) {
       if (saveError instanceof SyntaxError) {
@@ -364,8 +525,173 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
     }
   };
 
+  const applySuggestionsToForm = (sourceForm: QuestionFormState, suggestions: ReviewSuggestion[]) => {
+    const nextForm = { ...sourceForm, choices: [...sourceForm.choices], sprAnswers: [...sourceForm.sprAnswers] };
+    for (const suggestion of suggestions) {
+      for (const [field, value] of Object.entries(suggestion.updatedFields)) {
+        if (field === "questionText" || field === "passage" || field === "explanation") {
+          nextForm[field] = value;
+        }
+      }
+      if (suggestion.updatedChoices) {
+        const correctIndex = nextForm.choices.findIndex((choice) => choice.trim() === nextForm.correctAnswer.trim());
+        nextForm.choices = suggestion.updatedChoices;
+        if (correctIndex >= 0) {
+          nextForm.correctAnswer = suggestion.updatedChoices[correctIndex] ?? nextForm.correctAnswer;
+        } else if (!suggestion.updatedChoices.some((choice) => choice.trim() === nextForm.correctAnswer.trim())) {
+          const correctedAnswerSuggestion = getMathDollarSuggestion(nextForm.correctAnswer, "correctAnswer");
+          if (correctedAnswerSuggestion?.updatedFields.correctAnswer) {
+            nextForm.correctAnswer = correctedAnswerSuggestion.updatedFields.correctAnswer;
+          }
+        }
+      }
+      if (suggestion.updatedExtra !== undefined) {
+        nextForm.extraText = JSON.stringify(suggestion.updatedExtra, null, 2);
+      }
+    }
+    return nextForm;
+  };
+
+  const handleApproveAndNext = async () => {
+    if (!isReviewQueue && activeSuggestions.length === 0) {
+      setError("No review queue is active for this question.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const nextForm = activeSuggestions.length > 0 ? applySuggestionsToForm(form, activeSuggestions) : form;
+      await saveForm(nextForm);
+      await goToNextQuestion();
+    } catch (saveError) {
+      if (saveError instanceof SyntaxError) {
+        setError("Extra JSON must be valid JSON.");
+      } else {
+        setError(getApiErrorMessage(saveError, "Could not approve and open the next question."));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndNext = async () => {
+    setSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await saveForm(form);
+      await goToNextQuestion();
+    } catch (saveError) {
+      if (saveError instanceof SyntaxError) {
+        setError("Extra JSON must be valid JSON.");
+      } else {
+        setError(getApiErrorMessage(saveError, "Could not save and open the next question."));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLooksCorrectAndNext = async () => {
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      await goToNextQuestion();
+    } catch (nextError) {
+      setError(getApiErrorMessage(nextError, "Could not open the next queued question."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const originalPreviewForm = toFormState(data.question);
+  const suggestedPreviewForm = activeSuggestions.length > 0 ? applySuggestionsToForm(form, activeSuggestions) : form;
+  const originalPreviewQuestion = buildPreviewQuestion(originalPreviewForm, data.question.questionId);
+  const suggestedPreviewQuestion = buildPreviewQuestion(suggestedPreviewForm, data.question.questionId);
+  const suggestedPreviewLabel = activeSuggestions.length > 0 ? "Suggested Render" : "Current Render";
+
   return (
-    <main className="min-h-screen bg-paper-bg px-4 py-4 sm:px-5 lg:px-6">
+    <main
+      className="min-h-screen bg-paper-bg px-4 py-4 sm:px-5 lg:px-6"
+      onKeyDown={(event) => {
+        if (event.ctrlKey && event.key === "Enter" && isReviewQueue && !saving) {
+          event.preventDefault();
+          void handleApproveAndNext();
+        }
+      }}
+    >
+      {showStudentPreview ? (
+        <div className="fixed inset-0 z-50 bg-ink-fg/20 p-3 sm:p-5">
+          <div className="flex h-full flex-col overflow-hidden rounded-[2rem] border-4 border-ink-fg bg-paper-bg brutal-shadow-lg">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-4 border-ink-fg bg-surface-white px-4 py-3">
+              <div>
+                <div className="workbook-sticker bg-primary text-ink-fg">Student Preview</div>
+                <div className="mt-2 text-sm font-bold text-ink-fg/70">
+                  {data.question.testTitle} · Module {form.module} · Question {data.card.questionNumber}
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowStudentPreview(false)} className="workbook-button workbook-button-secondary workbook-press text-sm">
+                <X className="h-4 w-4" />
+                Close
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto bg-surface-white">
+              <div className="grid min-h-[520px] gap-0 xl:grid-cols-2">
+                <section className="min-w-0 border-b-4 border-ink-fg xl:border-b-0 xl:border-r-4">
+                  <div className="sticky top-0 z-20 border-b-2 border-ink-fg bg-accent-3 px-4 py-2 text-sm font-black uppercase tracking-[0.14em] text-white">
+                    Original Render
+                  </div>
+                  <div className="bg-surface-white [&>div]:!mb-0 [&>div]:!mt-0 [&>div]:!h-[calc(100vh-14.5rem)] [&>div]:!min-h-[520px]">
+                    <QuestionViewer
+                      theme="ronan"
+                      question={originalPreviewQuestion}
+                      userAnswer=""
+                      onAnswerSelect={() => undefined}
+                      isFlagged={false}
+                      onToggleFlag={() => undefined}
+                      index={Math.max(0, data.card.questionNumber - 1)}
+                      leftWidth={50}
+                    />
+                  </div>
+                </section>
+
+                <section className="min-w-0">
+                  <div className="sticky top-0 z-20 border-b-2 border-ink-fg bg-primary px-4 py-2 text-sm font-black uppercase tracking-[0.14em] text-ink-fg">
+                    {suggestedPreviewLabel}
+                  </div>
+                  <div className="bg-surface-white [&>div]:!mb-0 [&>div]:!mt-0 [&>div]:!h-[calc(100vh-14.5rem)] [&>div]:!min-h-[520px]">
+                    <QuestionViewer
+                      theme="ronan"
+                      question={suggestedPreviewQuestion}
+                      userAnswer=""
+                      onAnswerSelect={() => undefined}
+                      isFlagged={false}
+                      onToggleFlag={() => undefined}
+                      index={Math.max(0, data.card.questionNumber - 1)}
+                      leftWidth={50}
+                    />
+                  </div>
+                </section>
+              </div>
+
+              {form.imageUrl.trim() ? (
+                <div className="border-t-4 border-ink-fg bg-paper-bg px-4 py-4">
+                  <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-ink-fg/60">Raw Image URL Preview</div>
+                  <div className="rounded-2xl border-2 border-ink-fg bg-surface-white p-3">
+                    <img src={form.imageUrl} alt="Question image URL preview" className="mx-auto max-h-72 w-full object-contain" />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4">
         <section className="workbook-panel overflow-hidden">
           <div className="flex flex-col gap-4 border-b-4 border-ink-fg bg-paper-bg px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
@@ -400,6 +726,16 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 {saving ? "Saving..." : "Save question"}
               </button>
+              <button type="button" onClick={() => setShowStudentPreview(true)} className="workbook-button workbook-button-secondary workbook-press text-sm">
+                <Eye className="h-4 w-4" />
+                Student Preview
+              </button>
+              {hasListContext ? (
+                <button type="button" onClick={handleSaveAndNext} disabled={saving} className="workbook-button workbook-button-secondary workbook-press text-sm disabled:cursor-not-allowed disabled:opacity-60">
+                  <SkipForward className="h-4 w-4" />
+                  Save & Next
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -413,6 +749,123 @@ export function TestManagerQuestionEditor({ cardId }: { cardId: string }) {
               <div className="mb-4 rounded-2xl border-2 border-ink-fg bg-accent-3 px-4 py-3 text-sm font-bold text-white brutal-shadow-sm">
                 {error}
               </div>
+            ) : null}
+
+            {isReviewQueue ? (
+              <section className="mb-6 rounded-[24px] border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="workbook-sticker bg-primary text-ink-fg">Review Queue</div>
+                    <h2 className="mt-2 font-display text-2xl font-black uppercase tracking-tight text-ink-fg">{queue.replace(/_/g, " ")}</h2>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {reviewDiagnostics?.flags.map((flag) => (
+                        <span key={flag} className="rounded-full border-2 border-ink-fg bg-paper-bg px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-ink-fg">
+                          {flag.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {activeSuggestions.length > 0 || isReviewQueue ? (
+                      <button type="button" onClick={handleApproveAndNext} disabled={saving} className="workbook-button workbook-press text-sm disabled:cursor-not-allowed disabled:opacity-60">
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        Approve & Next
+                      </button>
+                    ) : null}
+                    {isReviewQueue ? (
+                      <button type="button" onClick={handleLooksCorrectAndNext} disabled={saving} className="workbook-button workbook-button-secondary workbook-press text-sm disabled:cursor-not-allowed disabled:opacity-60">
+                        <SearchCheck className="h-4 w-4" />
+                        Looks Correct & Next
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {reviewDiagnostics?.matchedKeywords.length ? (
+                  <div className="mt-4 rounded-2xl border-2 border-ink-fg bg-paper-bg p-3">
+                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-ink-fg/60">Matched Keywords</div>
+                    <div className="flex flex-wrap gap-2">
+                      {reviewDiagnostics.matchedKeywords.slice(0, 12).map((match) => (
+                        <span key={`${match.keyword}-${match.source}`} className={`rounded-full border-2 border-ink-fg px-3 py-1 text-[11px] font-bold text-ink-fg ${match.confidence === "high" ? "bg-primary" : "bg-surface-white"}`}>
+                          {match.keyword} · {match.source}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeSuggestions.length > 0 ? (
+                  <div
+                    className="mt-4 space-y-4"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if ((event.key === "Enter" && (event.ctrlKey || event.currentTarget === event.target)) && !saving) {
+                        event.preventDefault();
+                        void handleApproveAndNext();
+                      }
+                    }}
+                  >
+                    {activeSuggestions.map((suggestion, index) => (
+                      <article key={`${suggestion.kind}-${index}`} className="rounded-2xl border-2 border-ink-fg bg-paper-bg p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-black uppercase tracking-[0.14em] text-ink-fg">{getSuggestionTitle(suggestion.kind)}</div>
+                            <p className="mt-1 text-xs font-semibold text-ink-fg/65">{suggestion.summary}</p>
+                          </div>
+                          <span className="rounded-full border-2 border-ink-fg bg-primary px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-ink-fg">Safe fix</span>
+                        </div>
+                        <DiffBlock suggestion={suggestion} />
+                      </article>
+                    ))}
+                  </div>
+                ) : queue === "math_dollar_latex" || queue === "missing_math_delimiters" || queue === "markdown_table_payload" || queue === "rhetorical_notes_format" ? (
+                  <div className="mt-4 rounded-2xl border-2 border-ink-fg bg-paper-bg p-4 text-sm font-semibold text-ink-fg/70">
+                    No safe automatic suggestion is available. Use the editor below, then Save & Next.
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {isGraphTableQueue ? (
+              <section className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+                <div className="rounded-[24px] border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm">
+                  <div className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-ink-fg/70">Question Context</div>
+                  {form.passage.trim() ? <div className="mb-4 max-h-72 overflow-auto rounded-2xl border-2 border-ink-fg bg-paper-bg p-3 font-[Georgia,serif] text-[16px] leading-7 text-ink-fg">{renderHtmlLatexContent(form.passage)}</div> : null}
+                  <div className="rounded-2xl border-2 border-ink-fg bg-paper-bg p-3 font-[Georgia,serif] text-[16px] leading-7 text-ink-fg">{renderHtmlLatexContent(form.questionText)}</div>
+                  {form.choices.length > 0 ? (
+                    <div className="mt-3 space-y-2">
+                      {form.choices.map((choice, index) => (
+                        <div key={`${choice}-${index}`} className="rounded-2xl border-2 border-ink-fg bg-surface-white px-3 py-2 text-sm text-ink-fg">
+                          <span className="font-black">{optionLabels[index] ?? index + 1}.</span> {renderHtmlLatexContent(choice)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-[24px] border-2 border-ink-fg bg-surface-white p-4 brutal-shadow-sm">
+                  <div className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-ink-fg/70">Figure / Table Preview</div>
+                  <div className="space-y-4">
+                    {form.imageUrl.trim() ? (
+                      <div className="rounded-2xl border-2 border-ink-fg bg-paper-bg p-3">
+                        <img src={form.imageUrl} alt="Question figure" className="max-h-[26rem] w-full object-contain" />
+                      </div>
+                    ) : null}
+                    {parsedExtra ? (
+                      <QuestionExtraBlock
+                        extra={parsedExtra}
+                        className="rounded-2xl border-2 border-ink-fg bg-paper-bg p-4"
+                        titleClassName="mb-2 text-center text-[16px] font-normal leading-[1.35] text-ink-fg font-[Georgia,serif]"
+                      />
+                    ) : null}
+                    {!form.imageUrl.trim() && !parsedExtra ? (
+                      <div className="rounded-2xl border-2 border-dashed border-ink-fg/35 bg-paper-bg px-4 py-10 text-center text-sm font-semibold text-ink-fg/55">
+                        No figure/table payload is attached to this question.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
             ) : null}
 
             <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
