@@ -14,6 +14,7 @@ export const API_PATHS = {
   USER_REVIEW_REASONS: "/api/user/review-reasons",
   VOCAB_DICTIONARY: "/api/vocab/dictionary",
   TEST_MANAGER_TESTS: "/api/test-manager/tests",
+  TEST_MANAGER_NEXT_QUESTION: "/api/test-manager/next-question",
   TEST_MANAGER_LOCKED_TESTS: "/api/test-manager/locked-tests",
   TEST_MANAGER_REPORTS: "/api/test-manager-reports",
   GROUPS: "/api/groups",

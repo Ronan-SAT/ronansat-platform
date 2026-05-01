@@ -1,8 +1,11 @@
 // Admin manage all the questions in database
 
 
+import type { ReviewKeywordMatch, TestManagerReviewFilter, TestManagerReviewFlag } from "@/lib/testManagerReview";
+
 // Allow to find the keyword that admin typed to be found in these 3 places
 export type TestManagerCatalogSearchScope = "testTitle" | "passage" | "options";
+export type { TestManagerReviewFilter, TestManagerReviewFlag, ReviewKeywordMatch };
 
 // List sort options
 export type TestManagerCatalogSortOption =
@@ -27,6 +30,15 @@ export type TestManagerCatalogRow = {
   domain?: string;
   skill?: string;
   updatedAt: string;
+  reviewFlags: TestManagerReviewFlag[];
+  matchedKeywords: ReviewKeywordMatch[];
+  keywordConfidence?: "high" | "medium";
+  suspicionLevel?: "tier1" | "tier2" | "tier3";
+  extraType?: string | null;
+  hasImageUrl: boolean;
+  hasQuestionExtra: boolean;
+  hasPassageFigure: boolean;
+  contentSnippet: string;
 };
 
 // Pagination
@@ -37,6 +49,10 @@ export type TestManagerCatalogPage = {
   limit: number;                  // num of ques in a page
   nextOffset: number;             // contain the offset for the next page + bool to check if next page has any ques
   hasMore: boolean;
+};
+
+export type TestManagerNextQuestionPayload = {
+  nextQuestionId: string | null;
 };
 
 export type TestManagerLockedTestRow = {

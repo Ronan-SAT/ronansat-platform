@@ -91,6 +91,28 @@ const LOCAL_ORIGIN = process.env.PDF_TEST_ORIGIN || "https://learn.ronansat.com"
 const FORCE_RENDER = process.env.PDF_FORCE === "1" || process.env.PDF_FORCE === "true";
 const RENDER_TIMEOUT_MS = Number.parseInt(process.env.PDF_RENDER_TIMEOUT_MS ?? "90000", 10);
 
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let testId = process.env.PDF_TEST_ID?.trim() || undefined;
+  let onlyPublished = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const next = args[index + 1];
+
+    if (arg === "--test-id" && next) {
+      testId = next.trim();
+      index += 1;
+    } else if (arg === "--only-published") {
+      onlyPublished = true;
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+
+  return { testId, onlyPublished };
+}
+
 function getBrowserPath() {
   const explicitPath = process.env.PDF_BROWSER_PATH?.trim();
   if (explicitPath) {
@@ -187,6 +209,36 @@ async function fetchTests() {
   }
 
   return (data ?? []) as TestRow[];
+}
+
+function getAssetKey(testId: string, mode: "full" | "sectional", sectionName?: string | null) {
+  return [
+    testId,
+    mode,
+    mode === "full" ? "" : normalizeSectionName(sectionName ?? ""),
+  ].join(":");
+}
+
+async function loadPublishedAssetKeys() {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("test_pdf_assets")
+    .select("test_id, mode, section_name")
+    .eq("asset_kind", "flattened_pdf")
+    .eq("storage_provider", "google_drive")
+    .eq("is_active", true)
+    .not("drive_file_id", "is", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const keys = new Set<string>();
+  for (const row of (data ?? []) as Array<{ test_id: string; mode: "full" | "sectional"; section_name: string | null }>) {
+    keys.add(getAssetKey(row.test_id, row.mode, row.section_name));
+  }
+
+  return keys;
 }
 
 async function fetchQuestions(testId: string) {
@@ -374,15 +426,38 @@ function getSectionalTargets(questions: PrintableQuestion[]) {
 }
 
 async function main() {
+  const options = parseArgs();
   const browserPath = getBrowserPath();
-  const tests = await fetchTests();
+  const allTests = await fetchTests();
+  const publishedKeys = options.onlyPublished ? await loadPublishedAssetKeys() : null;
+  const publishedTestIds = publishedKeys
+    ? new Set([...publishedKeys].map((key) => key.split(":")[0]))
+    : null;
+  const tests = allTests.filter((test) => {
+    if (options.testId && test.id !== options.testId) {
+      return false;
+    }
+
+    if (publishedTestIds && !publishedTestIds.has(test.id)) {
+      return false;
+    }
+
+    return true;
+  });
   let renderedCount = 0;
   let skippedCount = 0;
 
   await mkdir(OUTPUT_DIR, { recursive: true });
   console.log(`Output folder: ${OUTPUT_DIR}`);
   console.log(`Browser: ${browserPath}`);
-  console.log(`Found ${tests.length} tests in Supabase.`);
+  console.log(`Found ${allTests.length} tests in Supabase. Rendering ${tests.length}.`);
+  if (publishedKeys) {
+    console.log(`Restricting raw generation to ${publishedKeys.size} active Google Drive PDF asset(s).`);
+  }
+
+  if (options.testId && tests.length === 0) {
+    throw new Error(`No Supabase test found for --test-id ${options.testId}`);
+  }
 
   for (const test of tests) {
     const questions = await fetchQuestions(test.id);
@@ -392,16 +467,22 @@ async function main() {
       continue;
     }
 
-    const fullPdfPath = await writeBookletPdf({
-      browserPath,
-      test,
-      mode: "full",
-      questions,
-    });
-    renderedCount += 1;
-    console.log(`Wrote full-length PDF: ${fullPdfPath}`);
+    if (!publishedKeys || publishedKeys.has(getAssetKey(test.id, "full"))) {
+      const fullPdfPath = await writeBookletPdf({
+        browserPath,
+        test,
+        mode: "full",
+        questions,
+      });
+      renderedCount += 1;
+      console.log(`Wrote full-length PDF: ${fullPdfPath}`);
+    }
 
     for (const sectionName of getSectionalTargets(questions)) {
+      if (publishedKeys && !publishedKeys.has(getAssetKey(test.id, "sectional", sectionName))) {
+        continue;
+      }
+
       const sectionQuestions = questions.filter((question) => normalizeSectionName(question.section) === sectionName);
       const sectionalPdfPath = await writeBookletPdf({
         browserPath,

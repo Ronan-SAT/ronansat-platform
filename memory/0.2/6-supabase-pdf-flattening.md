@@ -24,3 +24,9 @@ Image-only raster flattening update:
 - Do not overwrite `Desktop/flattened-pdfs`; keep it as the source archive for re-rasterization.
 - The image-only script is resumable: existing readable outputs are skipped by default, and `PDF_FORCE=1` forces regeneration. Outputs are written as temporary `.partial` files before being renamed into place.
 - Benchmark on April 30, 2026: 107 source PDFs contain 4096 pages and total 66.4 MB. A 5-page 300 DPI JPEG 4:4:4 sample converted from 168.4 KB to 1.14 MB. The lighter production profile converted the same 5-page sample to 266.2 KB, projecting about 3.1 MB for a 58-page full-length test.
+
+Google Drive publishing update:
+- PDF binary storage has pivoted from R2 to Google Drive. `test_pdf_assets.object_key` remains a logical path, while `drive_file_id` points to the actual Drive file.
+- App downloads must continue through `/api/test-pdfs/download`; never expose raw Drive links to students.
+- `scripts/pdf/publishDrivePdfAssets.ts` handles mapping, rasterizing, uploading to Drive, and inserting Supabase metadata. It is dry-run by default and requires `--execute` for Drive/Supabase mutations.
+- The publish script supports strict file names (`<uuid>_full.pdf`, `<uuid>_verbal.pdf`, `<uuid>_math.pdf`) and the current legacy folder layout.

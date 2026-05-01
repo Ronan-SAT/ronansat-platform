@@ -24,6 +24,7 @@ type PdfCanvas = ReturnType<typeof createCanvas>;
 
 const PDF_DPI = Number.parseInt(process.env.PDF_DPI ?? "135", 10);
 const JPEG_QUALITY = Number.parseInt(process.env.PDF_JPEG_QUALITY ?? "62", 10);
+const JPEG_CHROMA_SUBSAMPLING = process.env.PDF_JPEG_CHROMA_SUBSAMPLING ?? "4:2:0";
 const USE_GRAYSCALE = process.env.PDF_GRAYSCALE !== "0" && process.env.PDF_GRAYSCALE !== "false";
 const PDF_POINTS_PER_INCH = 72;
 const RENDER_SCALE = PDF_DPI / PDF_POINTS_PER_INCH;
@@ -113,7 +114,7 @@ async function renderPageToJpeg(page: pdfjs.PDFPageProxy) {
     return await pipeline
       .jpeg({
         quality: JPEG_QUALITY,
-        chromaSubsampling: "4:2:0",
+        chromaSubsampling: JPEG_CHROMA_SUBSAMPLING,
         mozjpeg: true,
       })
       .toBuffer();
@@ -229,7 +230,11 @@ async function main() {
 
   console.log(`Input folder: ${inputDir}`);
   console.log(`Output folder: ${outputDir}`);
-  console.log(`Raster profile: ${PDF_DPI} DPI, JPEG quality ${JPEG_QUALITY}, grayscale ${USE_GRAYSCALE ? "on" : "off"}`);
+  console.log(
+    `Raster profile: ${PDF_DPI} DPI, JPEG quality ${JPEG_QUALITY}, chroma ${JPEG_CHROMA_SUBSAMPLING}, grayscale ${
+      USE_GRAYSCALE ? "on" : "off"
+    }`,
+  );
   console.log(`Found ${pdfPaths.length} PDF files.`);
 
   for (const [index, inputPath] of pdfPaths.entries()) {

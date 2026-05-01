@@ -297,54 +297,136 @@ function normalizeQuestionPayload(payload: EditableQuestionPayload) {
   };
 }
 
-async function replaceQuestionAnswers(questionId: string, payload: ReturnType<typeof normalizeQuestionPayload>) {
+function resolveMultipleChoiceCorrectAnswer(question: QuestionRow, payload: ReturnType<typeof normalizeQuestionPayload>) {
+  const choices = payload.choices ?? [];
+  const submittedCorrectAnswer = payload.correctAnswer ?? "";
+  if (choices.includes(submittedCorrectAnswer)) {
+    return submittedCorrectAnswer;
+  }
+
+  const sortedOptions = [...(question.question_options ?? [])].sort((left, right) => left.display_order - right.display_order);
+  const currentCorrectIndex = question.question_correct_options
+    ? sortedOptions.findIndex((option) => option.id === question.question_correct_options?.option_id)
+    : -1;
+
+  if (currentCorrectIndex >= 0 && choices[currentCorrectIndex]) {
+    return choices[currentCorrectIndex];
+  }
+
+  const normalizedSubmitted = submittedCorrectAnswer.replace(/\s+/g, " ").trim();
+  const choiceCodeMatch = normalizedSubmitted.match(/^choice_(\d+)$/i);
+  if (choiceCodeMatch) {
+    const choiceIndex = Number.parseInt(choiceCodeMatch[1] ?? "", 10);
+    if (Number.isInteger(choiceIndex) && choices[choiceIndex]) {
+      return choices[choiceIndex];
+    }
+  }
+
+  const labelIndex = "ABCDEF".indexOf(normalizedSubmitted.toUpperCase());
+  if (labelIndex >= 0 && choices[labelIndex]) {
+    return choices[labelIndex];
+  }
+
+  const normalizedMatch = choices.find((choice) => choice.replace(/\s+/g, " ").trim() === normalizedSubmitted);
+  return normalizedMatch ?? null;
+}
+
+async function replaceQuestionAnswers(question: QuestionRow, payload: ReturnType<typeof normalizeQuestionPayload>) {
   const supabase = createSupabaseAdminClient();
+  const questionId = question.id;
 
-  const [{ error: deleteCorrectError }, { error: deleteOptionsError }, { error: deleteSprError }] = await Promise.all([
-    supabase.from("question_correct_options").delete().eq("question_id", questionId),
-    supabase.from("question_options").delete().eq("question_id", questionId),
-    supabase.from("question_spr_accepted_answers").delete().eq("question_id", questionId),
-  ]);
-
-  const deleteError = deleteCorrectError ?? deleteOptionsError ?? deleteSprError;
-  if (deleteError) {
-    throw new TestManagerQuestionError(500, deleteError.message);
+  const { error: deleteSprError } = await supabase.from("question_spr_accepted_answers").delete().eq("question_id", questionId);
+  if (deleteSprError) {
+    throw new TestManagerQuestionError(500, deleteSprError.message);
   }
 
   if (payload.questionType === "multiple_choice") {
     const choices = payload.choices ?? [];
-    const correctAnswer = payload.correctAnswer ?? "";
+    const correctAnswer = resolveMultipleChoiceCorrectAnswer(question, payload);
 
     if (choices.length === 0) {
       throw new TestManagerQuestionError(400, "Multiple-choice questions need at least one choice.");
     }
 
-    if (!choices.includes(correctAnswer)) {
-      throw new TestManagerQuestionError(400, "The correct answer must exactly match one of the choices.");
+    const existingOptions = [...(question.question_options ?? [])].sort((left, right) => left.display_order - right.display_order);
+    const surplusOptions = existingOptions.slice(choices.length);
+    if (surplusOptions.length > 0) {
+      const { count, error: attemptCountError } = await supabase
+        .from("attempt_answers")
+        .select("id", { count: "exact", head: true })
+        .eq("question_id", questionId)
+        .in("selected_option_id", surplusOptions.map((option) => option.id));
+
+      if (attemptCountError) {
+        throw new TestManagerQuestionError(500, attemptCountError.message);
+      }
+
+      if ((count ?? 0) > 0) {
+        throw new TestManagerQuestionError(
+          400,
+          "This question has student attempts tied to removed choices. Edit the existing choices instead of deleting them.",
+        );
+      }
+
+      const { error: surplusDeleteError } = await supabase
+        .from("question_options")
+        .delete()
+        .eq("question_id", questionId)
+        .in("id", surplusOptions.map((option) => option.id));
+
+      if (surplusDeleteError) {
+        throw new TestManagerQuestionError(500, surplusDeleteError.message);
+      }
     }
 
-    const { data: options, error: optionError } = await supabase
-      .from("question_options")
-      .insert(
-        choices.map((choice, index) => ({
+    const savedOptions: Array<{ id: string; option_text: string }> = [];
+    for (const [index, choice] of choices.entries()) {
+      const existingOption = existingOptions[index];
+      if (existingOption) {
+        const { data: updatedOption, error: optionError } = await supabase
+          .from("question_options")
+          .update({
+            option_code: `choice_${index}`,
+            option_text: choice,
+            display_order: index + 1,
+          })
+          .eq("id", existingOption.id)
+          .select("id,option_text")
+          .single<{ id: string; option_text: string }>();
+
+        if (optionError || !updatedOption) {
+          throw new TestManagerQuestionError(500, optionError?.message ?? "Failed to save choices.");
+        }
+
+        savedOptions.push(updatedOption);
+        continue;
+      }
+
+      const { data: insertedOption, error: optionError } = await supabase
+        .from("question_options")
+        .insert({
           question_id: questionId,
           option_code: `choice_${index}`,
           option_text: choice,
           display_order: index + 1,
-        })),
-      )
-      .select("id,option_text");
+        })
+        .select("id,option_text")
+        .single<{ id: string; option_text: string }>();
 
-    if (optionError || !options) {
-      throw new TestManagerQuestionError(500, optionError?.message ?? "Failed to save choices.");
+      if (optionError || !insertedOption) {
+        throw new TestManagerQuestionError(500, optionError?.message ?? "Failed to save choices.");
+      }
+
+      savedOptions.push(insertedOption);
     }
 
-    const matchedOption = options.find((option) => option.option_text === correctAnswer);
+    const matchedOption = savedOptions.find((option) => option.option_text === correctAnswer)
+      ?? savedOptions.find((option) => option.id === question.question_correct_options?.option_id);
     if (!matchedOption) {
-      throw new TestManagerQuestionError(400, "The correct answer must exactly match one of the choices.");
+      throw new TestManagerQuestionError(400, "Select a correct answer before saving this multiple-choice question.");
     }
 
-    const { error: correctOptionError } = await supabase.from("question_correct_options").insert({
+    const { error: correctOptionError } = await supabase.from("question_correct_options").upsert({
       question_id: questionId,
       option_id: matchedOption.id,
     });
@@ -354,6 +436,11 @@ async function replaceQuestionAnswers(questionId: string, payload: ReturnType<ty
     }
 
     return;
+  }
+
+  const { error: deleteCorrectError } = await supabase.from("question_correct_options").delete().eq("question_id", questionId);
+  if (deleteCorrectError) {
+    throw new TestManagerQuestionError(500, deleteCorrectError.message);
   }
 
   const sprAnswers = payload.sprAnswers ?? [];
@@ -418,7 +505,7 @@ export const testManagerQuestionService = {
       throw new TestManagerQuestionError(500, updateError.message);
     }
 
-    await replaceQuestionAnswers(question.id, payload);
+    await replaceQuestionAnswers(question, payload);
 
     const nextCard: TestManagerCard = {
       ...card,

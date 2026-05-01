@@ -1,9 +1,7 @@
-import { GetObjectCommand, NoSuchKey, S3ServiceException, type GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 
 import type { AppSession } from "@/lib/auth/session";
-import { getR2Client } from "@/lib/r2/client";
-import { getR2BucketName } from "@/lib/r2/env";
+import { getGoogleDriveClient } from "@/lib/googleDrive/client";
 import { normalizeSectionName } from "@/lib/sections";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -29,6 +27,9 @@ type TestPdfAssetRow = {
   content_type: string;
   file_size_bytes: number | null;
   version: number;
+  storage_provider: "google_drive" | string;
+  drive_file_id: string | null;
+  drive_folder_id: string | null;
 };
 
 type TestAccessRow = {
@@ -58,12 +59,24 @@ function normalizeToken(token: string | undefined) {
 }
 
 function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[\r\n"]/g, "").trim() || "ronan-sat-practice.pdf";
+  const cleaned = fileName
+    .replace(/[\r\n"]/g, "")
+    .replace(/[<>:"/\\|?*]/g, "")
+    .trim();
+  return cleaned || "ronan-sat-practice.pdf";
 }
 
 function parseSectionName(sectionName?: string) {
   const normalized = normalizeSectionName(sectionName);
   return normalized || undefined;
+}
+
+function getPdfDownloadFileName(test: TestAccessRow, asset: TestPdfAssetRow) {
+  if (asset.mode === "sectional" && asset.section_name) {
+    return sanitizeFileName(`Ronan SAT - ${test.title} - ${asset.section_name}.pdf`);
+  }
+
+  return sanitizeFileName(`Ronan SAT - ${test.title}.pdf`);
 }
 
 function isNodeReadableStream(value: unknown): value is Readable {
@@ -175,11 +188,13 @@ async function getActivePdfAsset(params: PdfDownloadParams) {
   const sectionName = parseSectionName(params.sectionName);
   let query = supabase
     .from("test_pdf_assets")
-    .select("id, test_id, section_name, module_number, mode, asset_kind, object_key, file_name, content_type, file_size_bytes, version")
+    .select("id, test_id, section_name, module_number, mode, asset_kind, object_key, file_name, content_type, file_size_bytes, version, storage_provider, drive_file_id, drive_folder_id")
     .eq("test_id", params.testId)
     .eq("mode", params.mode)
     .eq("asset_kind", "flattened_pdf")
+    .eq("storage_provider", "google_drive")
     .eq("is_active", true)
+    .not("drive_file_id", "is", null)
     .order("version", { ascending: false })
     .limit(1);
 
@@ -204,10 +219,47 @@ async function getActivePdfAsset(params: PdfDownloadParams) {
   }
 
   if (!data) {
-    throw new PdfAssetError("No flattened PDF has been published for this test yet.", 404);
+    throw new PdfAssetError("No Google Drive PDF has been published for this test yet.", 404);
   }
 
   return data as TestPdfAssetRow;
+}
+
+async function getDrivePdfStream(asset: TestPdfAssetRow) {
+  if (!asset.drive_file_id) {
+    throw new PdfAssetError("This PDF asset is missing its Google Drive file id.", 500);
+  }
+
+  try {
+    const response = await getGoogleDriveClient().files.get(
+      {
+        fileId: asset.drive_file_id,
+        alt: "media",
+        supportsAllDrives: true,
+      },
+      {
+        responseType: "stream",
+      },
+    );
+
+    return {
+      body: response.data,
+      contentType: response.headers["content-type"],
+      contentLength: response.headers["content-length"],
+    };
+  } catch (error: unknown) {
+    const maybeStatus = typeof error === "object" && error && "code" in error ? Number((error as { code?: unknown }).code) : undefined;
+
+    if (maybeStatus === 404) {
+      throw new PdfAssetError(`The PDF file was not found in Google Drive for file id: ${asset.drive_file_id}`, 404);
+    }
+
+    if (maybeStatus === 401 || maybeStatus === 403) {
+      throw new PdfAssetError("Google Drive denied access to this PDF. Check OAuth credentials and file permissions.", 502);
+    }
+
+    throw error;
+  }
 }
 
 export async function getPdfDownload({
@@ -221,34 +273,11 @@ export async function getPdfDownload({
   ipAddress?: string;
   userAgent?: string;
 }) {
-  await getTest(session, params.testId);
+  const test = await getTest(session, params.testId);
   await assertTokenAccess(session, params.testId, params.token);
 
   const asset = await getActivePdfAsset(params);
-  let objectResponse: GetObjectCommandOutput;
-
-  try {
-    objectResponse = await getR2Client().send(
-      new GetObjectCommand({
-        Bucket: getR2BucketName(),
-        Key: asset.object_key,
-      }),
-    );
-  } catch (error) {
-    if (error instanceof NoSuchKey || (error instanceof S3ServiceException && error.name === "NoSuchKey")) {
-      throw new PdfAssetError(`The PDF file was not found in R2 at object key: ${asset.object_key}`, 404);
-    }
-
-    if (error instanceof S3ServiceException && (error.name === "AccessDenied" || error.$metadata.httpStatusCode === 403)) {
-      throw new PdfAssetError("R2 denied access to this PDF. Check the bucket name and R2 token permissions.", 502);
-    }
-
-    if (error instanceof S3ServiceException && error.$metadata.httpStatusCode === 404) {
-      throw new PdfAssetError("R2 bucket or object was not found. Check R2_BUCKET_NAME and the object key.", 404);
-    }
-
-    throw error;
-  }
+  const driveResponse = await getDrivePdfStream(asset);
 
   const supabase = createSupabaseAdminClient();
   await supabase.from("test_pdf_download_events").insert({
@@ -264,9 +293,9 @@ export async function getPdfDownload({
 
   return {
     asset,
-    stream: bodyToWebStream(objectResponse.Body),
-    fileName: sanitizeFileName(asset.file_name),
-    contentType: objectResponse.ContentType || asset.content_type || "application/pdf",
-    contentLength: objectResponse.ContentLength ?? asset.file_size_bytes ?? undefined,
+    stream: bodyToWebStream(driveResponse.body),
+    fileName: getPdfDownloadFileName(test, asset),
+    contentType: driveResponse.contentType || asset.content_type || "application/pdf",
+    contentLength: driveResponse.contentLength ? Number(driveResponse.contentLength) : asset.file_size_bytes ?? undefined,
   };
 }

@@ -71,6 +71,47 @@ function parseCsvTable(value: string): string[][] {
     .filter((row) => row.some((cell) => cell.length > 0));
 }
 
+function isMarkdownTableSeparator(line: string): boolean {
+  return /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+}
+
+function parsePipeLine(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function parsePipeTable(value: string): string[][] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !isMarkdownTableSeparator(line))
+    .map(parsePipeLine)
+    .filter((row) => row.length > 1 && row.some((cell) => cell.length > 0));
+}
+
+function shouldParseAsPipeTable(value: string): boolean {
+  const rows = parsePipeTable(value);
+  if (rows.length < 2) {
+    return false;
+  }
+
+  const columnCount = rows[0].length;
+  return columnCount > 1 && rows.every((row) => row.length === columnCount);
+}
+
+function parseTableContent(value: string): string[][] {
+  if (shouldParseAsPipeTable(value)) {
+    return parsePipeTable(value);
+  }
+
+  return parseCsvTable(value);
+}
+
 export function normalizeQuestionExtra(extra: unknown): QuestionExtra | null {
   if (!extra || typeof extra !== "object") {
     return null;
@@ -100,21 +141,21 @@ export function parseQuestionExtraTable(extra: unknown): ParsedQuestionExtraTabl
   const rawContent = typeof normalized.content === "string" ? parseJsonString(normalized.content) : normalized.content;
 
   let title: string | null = null;
-  let csvContent = "";
+  let tableContent = "";
 
   if (typeof rawContent === "string") {
-    csvContent = rawContent;
+    tableContent = rawContent;
   } else if (rawContent && typeof rawContent === "object") {
-    const tableContent = rawContent as { title?: unknown; content?: unknown };
-    title = typeof tableContent.title === "string" && tableContent.title.trim() ? tableContent.title.trim() : null;
-    csvContent = typeof tableContent.content === "string" ? tableContent.content : "";
+    const structuredContent = rawContent as { title?: unknown; content?: unknown };
+    title = typeof structuredContent.title === "string" && structuredContent.title.trim() ? structuredContent.title.trim() : null;
+    tableContent = typeof structuredContent.content === "string" ? structuredContent.content : "";
   }
 
-  if (!csvContent.trim()) {
+  if (!tableContent.trim()) {
     return null;
   }
 
-  const rows = parseCsvTable(csvContent);
+  const rows = parseTableContent(tableContent);
   if (rows.length === 0) {
     return null;
   }

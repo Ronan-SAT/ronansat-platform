@@ -5,12 +5,16 @@ import type {
   TestManagerCatalogSearchScope,
   TestManagerCatalogSortOption,
   TestManagerLockedTestsPayload,
+  TestManagerNextQuestionPayload,
+  TestManagerReviewFilter,
 } from "@/types/testManager";
 
 type FetchTestManagerCatalogPageOptions = {
   query?: string;
   searchScope?: TestManagerCatalogSearchScope;
   sort?: TestManagerCatalogSortOption;
+  reviewFilter?: TestManagerReviewFilter;
+  hideTier3?: boolean;
   offset?: number;
   limit?: number;
 };
@@ -19,6 +23,8 @@ export async function fetchTestManagerCatalogPage({
   query = "",
   searchScope = "testTitle",
   sort = "updated_desc",
+  reviewFilter = "all",
+  hideTier3 = false,
   offset = 0,
   limit = 20,
 }: FetchTestManagerCatalogPageOptions) {
@@ -26,12 +32,35 @@ export async function fetchTestManagerCatalogPage({
     query,
     searchScope,
     sort,
+    reviewFilter,
+    hideTier3: hideTier3 ? "1" : "0",
     offset: String(offset),
     limit: String(limit),
   });
 
   const res = await api.get(`${API_PATHS.TEST_MANAGER_TESTS}?${params.toString()}`);
   return res.data as TestManagerCatalogPage;
+}
+
+export async function fetchNextTestManagerQuestion({
+  currentQuestionId,
+  query = "",
+  searchScope = "testTitle",
+  sort = "test_asc",
+  reviewFilter = "all",
+  hideTier3 = false,
+}: FetchTestManagerCatalogPageOptions & { currentQuestionId: string }) {
+  const params = new URLSearchParams({
+    currentQuestionId,
+    query,
+    searchScope,
+    sort,
+    reviewFilter,
+    hideTier3: hideTier3 ? "1" : "0",
+  });
+
+  const res = await api.get(`${API_PATHS.TEST_MANAGER_NEXT_QUESTION}?${params.toString()}`);
+  return res.data as TestManagerNextQuestionPayload;
 }
 
 export async function fetchLockedTestsForManager() {

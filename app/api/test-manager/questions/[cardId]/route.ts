@@ -45,7 +45,10 @@ export async function PATCH(req: Request, context: RouteContext) {
     console.error("PATCH /api/test-manager/questions/[cardId] error:", error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid question payload.", details: error.flatten() }, { status: 400 });
+      const firstIssue = error.issues[0];
+      const fieldPath = firstIssue?.path.length ? firstIssue.path.join(".") : "payload";
+      const message = firstIssue ? `${fieldPath}: ${firstIssue.message}` : "Invalid question payload.";
+      return NextResponse.json({ error: message, details: error.flatten() }, { status: 400 });
     }
 
     return NextResponse.json({ error: getTestManagerQuestionErrorMessage(error) }, { status: getTestManagerQuestionErrorStatus(error) });

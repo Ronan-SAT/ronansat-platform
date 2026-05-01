@@ -1,11 +1,6 @@
 
 import { z } from "zod";
 
-const QuestionExtraSchema = z.object({
-  type: z.enum(["table", "figure_math", "figure_chart", "figure_other"]),
-  content: z.unknown(),    // allow to be any type
-});
-
 export const QuestionValidationSchema = z.object({
     testId: z.string().min(1, "Test ID is required"),
     section: z.string().min(1, "Section is required"),
@@ -22,7 +17,7 @@ export const QuestionValidationSchema = z.object({
     difficulty: z.enum(["easy", "medium", "hard"]).default("medium"),
     points: z.number().min(0).default(10),
     imageUrl: z.string().optional(),
-    extra: QuestionExtraSchema.optional(),
+    extra: z.unknown().optional(),
 });
 
 // `z.infer` keeps the runtime schema and the TypeScript input type aligned.
