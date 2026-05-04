@@ -157,6 +157,20 @@ function ReviewSummaryCard({ testType, activeTest }: { testType: "full" | "secti
   );
 }
 
+function SectionScoreSticker({
+  score,
+  className,
+}: {
+  score?: number;
+  className: string;
+}) {
+  if (score == null) {
+    return null;
+  }
+
+  return <div className={`workbook-sticker shrink-0 ${className}`}>Score: {score}</div>;
+}
+
 function FullLengthReport({
   activeTest,
   onSelectAnswer,
@@ -172,11 +186,14 @@ function FullLengthReport({
     <div className="space-y-6">
       <div className="workbook-panel overflow-hidden">
         <div className="border-b-4 border-ink-fg bg-paper-bg p-6">
-        <div className="flex items-center gap-2">
-          <div className="rounded-2xl border-2 border-ink-fg bg-accent-1 p-2 brutal-shadow-sm">
-            <BookOpen className="h-4 w-4 text-ink-fg" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="rounded-2xl border-2 border-ink-fg bg-accent-1 p-2 brutal-shadow-sm">
+              <BookOpen className="h-4 w-4 text-ink-fg" />
+            </div>
+            <h2 className="font-display text-2xl font-black uppercase tracking-tight text-ink-fg">Reading &amp; Writing</h2>
           </div>
-          <h2 className="font-display text-2xl font-black uppercase tracking-tight text-ink-fg">Reading &amp; Writing</h2>
+          <SectionScoreSticker score={activeTest.readingScore} className="bg-primary text-ink-fg" />
         </div>
         </div>
 
@@ -207,11 +224,14 @@ function FullLengthReport({
 
       <div className="workbook-panel overflow-hidden">
         <div className="border-b-4 border-ink-fg bg-paper-bg p-6">
-        <div className="flex items-center gap-2">
-          <div className="rounded-2xl border-2 border-ink-fg bg-accent-2 p-2 text-white brutal-shadow-sm">
-            <Calculator className="h-4 w-4" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="rounded-2xl border-2 border-ink-fg bg-accent-2 p-2 text-white brutal-shadow-sm">
+              <Calculator className="h-4 w-4" />
+            </div>
+            <h2 className="font-display text-2xl font-black uppercase tracking-tight text-ink-fg">Math</h2>
           </div>
-          <h2 className="font-display text-2xl font-black uppercase tracking-tight text-ink-fg">Math</h2>
+          <SectionScoreSticker score={activeTest.mathScore} className="bg-primary text-ink-fg" />
         </div>
         </div>
 
