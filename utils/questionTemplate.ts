@@ -206,6 +206,37 @@ function loosenTallInlineMathText(mathText: string): string {
   return mathText.replace(/\\frac/g, "\\dfrac");
 }
 
+function normalizeLatexDelimiters(text: string): string {
+  return text
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_match, mathText: string) => `$$${mathText}$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, mathText: string) => `$${mathText}$`);
+}
+
+function normalizeKatexMathText(mathText: string): string {
+  let normalized = mathText
+    .replace(/\\(left|right)\s+([()[\]{}.|])/g, "\\$1$2")
+    .replace(/\\sqrt\s+\[/g, "\\sqrt[")
+    .replace(/\\(d?frac|tfrac)\s+\{/g, "\\$1{");
+
+  const openBraceCount = (normalized.match(/\{/g) ?? []).length;
+  const closeBraceCount = (normalized.match(/\}/g) ?? []).length;
+  if (openBraceCount > closeBraceCount) {
+    normalized += "}".repeat(openBraceCount - closeBraceCount);
+  }
+
+  return normalized;
+}
+
+function promoteStandaloneInlineMath(text: string): string {
+  return text.replace(/^\s*\$(?!\$)(.+?)\$(?!\$)\s*$/gm, (match, mathText: string) => {
+    if (/(?<!\\)\$/.test(mathText)) {
+      return match;
+    }
+
+    return `$$${mathText.trim()}$$`;
+  });
+}
+
 function parseText(
   text: string | null | undefined,
   options?: {
@@ -217,25 +248,23 @@ function parseText(
     return "";
   }
 
-  const normalizedLineBreaks = text
+  const normalizedLineBreaks = normalizeLatexDelimiters(text)
     .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
     .replace(/<br\s*\/?>/gi, "<br>");
 
+  const textWithSanitizedTables = sanitizeMarkdownTables(normalizedLineBreaks);
   const normalizedText = options?.promoteStandaloneMath
-    ? normalizedLineBreaks.replace(/^\s*\$(?!\$)(.+?)\$(?!\$)\s*$/gm, (_, mathText: string) => {
-        return `$$${mathText.trim()}$$`;
-      })
-    : normalizedLineBreaks;
+    ? promoteStandaloneInlineMath(textWithSanitizedTables)
+    : textWithSanitizedTables;
 
-  const textWithSanitizedTables = sanitizeMarkdownTables(normalizedText);
-  const textWithBareLatexWrapped = wrapBareLatexOutsideDelimitedMath(textWithSanitizedTables);
+  const textWithBareLatexWrapped = wrapBareLatexOutsideDelimitedMath(normalizedText);
 
   const parsedMath = textWithBareLatexWrapped.replace(
     MATH_DELIMITER_PATTERN,
     (match, prefix, mathText) => {
       try {
         const isDisplayMath = prefix === "$$";
-        const normalizedMathText = mathText.trim();
+        const normalizedMathText = normalizeKatexMathText(mathText.trim());
         const renderMathText =
           !isDisplayMath && options?.loosenTallInlineMath && hasTallMath(normalizedMathText)
             ? `\\displaystyle ${loosenTallInlineMathText(normalizedMathText)}`

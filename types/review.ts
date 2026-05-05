@@ -2,6 +2,7 @@ import type { QuestionExtra } from "@/lib/questionExtra";
 
 export type ReviewQuestion = {
   _id: string;
+  position?: number;
   section?: string;
   module?: number;
   subject?: string;

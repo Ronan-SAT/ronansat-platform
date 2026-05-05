@@ -20,6 +20,7 @@ import {
   getSectionalIcon,
   getSkillPerformance,
   groupFullLengthAnswers,
+  sortReviewAnswersByPosition,
   toTitleCase,
 } from "@/components/review/reviewPage.utils";
 import { SkillPerformanceCard } from "@/components/review/SkillPerformanceCard";
@@ -54,6 +55,7 @@ function AnswerGrid({  // Destructure món hàng mà component cha truyền xu�
   return (
     <div className="mt-3 flex flex-wrap gap-2">  
       {answers.map((answer, index) => {
+        const questionNumber = answer.questionId?.position ?? startIndex + index + 1;
         const isOmitted = !answer.userAnswer || answer.userAnswer === "" || answer.userAnswer === "Omitted";
         let className = "border-2 border-ink-fg bg-surface-white text-ink-fg";   // Điều chỉnh màu nếu câu này bị Omitted
 
@@ -69,8 +71,8 @@ function AnswerGrid({  // Destructure món hàng mà component cha truyền xu�
             answer={answer}
             resultId={resultId}
             testId={testId}
-            questionNumber={startIndex + index + 1}
-            title={`Q${startIndex + index + 1} - ${isOmitted ? "Omitted" : answer.isCorrect ? "Correct" : "Incorrect"}`}
+            questionNumber={questionNumber}
+            title={`Q${questionNumber} - ${isOmitted ? "Omitted" : answer.isCorrect ? "Correct" : "Incorrect"}`}
             className={`flex h-10 w-10 items-center justify-center rounded-2xl text-xs font-black transition-all duration-150 brutal-shadow-sm workbook-press ${className}`}
             onSelectAnswer={onSelectAnswer}
             onPrefetchAnswer={onPrefetchAnswer}
@@ -273,7 +275,7 @@ function SectionalReport({
   onPrefetchAnswer?: (payload: { resultId: string; answer: ReviewAnswer }) => Promise<void> | void;
 }) {
   const colors = getSectionalColors(activeTest.sectionalSubject || "");   // Lấy màu sắc riêng của môn học đó
-  const answers = activeTest.answers || [];    // Lấy list câu trả lời của user+đáp án đúng của câu đó ra
+  const answers = sortReviewAnswersByPosition(activeTest.answers || []);    // Lấy list câu trả lời của user+đáp án đúng của câu đó ra
   const stats = getReviewStats(answers);       // Gọi hàm tính số câu đúng/sai cho phần Sectional này 
 
   return (
