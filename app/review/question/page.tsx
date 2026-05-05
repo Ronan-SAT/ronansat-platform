@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import Loading from "@/components/Loading";
 import ReviewPopup from "@/components/ReviewPopup";
+import { sortReviewAnswersByPosition } from "@/components/review/reviewPage.utils";
 import { normalizeSectionName } from "@/lib/sections";
 import { fetchQuestionExplanation, fetchReviewQuestion, fetchReviewResult } from "@/lib/services/reviewService";
 import type { ReviewAnswer, ReviewResult } from "@/types/review";
@@ -123,7 +124,7 @@ function ReviewQuestionContent() {
 
   const normalizedCurrentSection = normalizeSectionName(answer?.questionId?.section);
   const currentModule = answer?.questionId?.module;
-  const scopedModuleAnswers =
+  const scopedModuleAnswers = sortReviewAnswersByPosition(
     reviewResult?.answers?.filter((candidate) => {
       const candidateQuestion = candidate.questionId;
       if (!candidateQuestion?._id || !candidateQuestion.module) {
@@ -134,7 +135,8 @@ function ReviewQuestionContent() {
         normalizeSectionName(candidateQuestion.section) === normalizedCurrentSection &&
         candidateQuestion.module === currentModule
       );
-    }) ?? [];
+    }) ?? [],
+  );
   const scopedCurrentIndex = scopedModuleAnswers.findIndex(
     (candidate) => candidate.questionId?._id === answer?.questionId?._id,
   );
@@ -156,7 +158,7 @@ function ReviewQuestionContent() {
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("questionId", nextQuestionId);
-    params.set("questionNumber", String(targetIndex + 1));
+    params.set("questionNumber", String(nextAnswer.questionId?.position ?? targetIndex + 1));
     router.push(`/review/question?${params.toString()}`);
   };
 

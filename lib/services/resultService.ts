@@ -13,6 +13,7 @@ type ValidatedAnswer = {
 
 type QuestionRow = {
   id: string;
+  position: number;
   question_type: "multiple_choice" | "spr";
   question_text: string;
   passage: string | null;
@@ -49,6 +50,7 @@ type QuestionRow = {
 
 type QuestionSummaryRow = {
   id: string;
+  position: number;
   question_type: "multiple_choice" | "spr";
   difficulty: string | null;
   domain: string | null;
@@ -140,6 +142,7 @@ function toSummaryReviewAnswer(answer: AttemptAnswerSummaryRow): ReviewAnswer {
     questionId: question
       ? {
           _id: question.id,
+          position: question.position,
           section: section?.name,
           module: section?.module_number ?? undefined,
           domain: question.domain ?? undefined,
@@ -298,6 +301,7 @@ async function fetchQuestionMap(questionIds: string[], testId?: string) {
     .select(
       `
         id,
+        position,
         question_type,
         question_text,
         passage,
@@ -411,6 +415,7 @@ async function fetchResultsView(userId: string, days?: number) {
     const normalizedAnswer: ReviewAnswer = {
       questionId: {
         _id: question.id,
+        position: question.position,
         section: section?.name,
         module: section?.module_number ?? undefined,
         domain: question.domain ?? undefined,
@@ -559,6 +564,7 @@ async function fetchReviewResultView(userId: string, resultId: string) {
           is_correct,
           questions!inner (
             id,
+            position,
             question_type,
             difficulty,
             domain,
@@ -620,6 +626,7 @@ async function fetchReviewQuestionAnswer(userId: string, resultId: string, quest
         is_correct,
         questions!inner (
           id,
+          position,
           question_type,
           question_text,
           passage,
@@ -673,6 +680,7 @@ async function fetchReviewQuestionAnswer(userId: string, resultId: string, quest
   return {
     questionId: {
       _id: normalizedQuestion.id,
+      position: normalizedQuestion.position,
       section: section?.name,
       module: section?.module_number ?? undefined,
       domain: normalizedQuestion.domain ?? undefined,
@@ -876,6 +884,7 @@ export const resultService = {
             is_correct,
             questions!inner (
               id,
+              position,
               question_type,
               difficulty,
               domain,

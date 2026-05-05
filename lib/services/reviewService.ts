@@ -22,8 +22,8 @@ type FetchReviewErrorLogPageOptions = {
 };
 
 export const REVIEW_CACHE_KEYS = {
-  results: "review:results",
-  result: (resultId: string) => `review:result:${resultId}`,
+  results: "review:results:v2",
+  result: (resultId: string) => `review:result:v2:${resultId}`,
   question: (resultId: string, questionId: string) => `review:question:${resultId}:${questionId}`,
   errorLog: ({
     testType,

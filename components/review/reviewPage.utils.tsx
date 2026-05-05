@@ -72,18 +72,34 @@ export function getReviewScoreLabel(result: ReviewResult) {
   return Math.max(400, rawScore);
 }
 
+function getAnswerPosition(answer: ReviewAnswer) {
+  return answer.questionId?.position ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function sortReviewAnswersByPosition(answers: ReviewAnswer[]) {
+  return [...answers].sort((left, right) => getAnswerPosition(left) - getAnswerPosition(right));
+}
+
 export function groupFullLengthAnswers(result: ReviewResult) {
   return {
     rwModule1:
-      result.answers?.filter(
-        (answer) => isVerbalSection(answer.questionId?.section) && answer.questionId?.module === 1,
-      ) || [],
+      sortReviewAnswersByPosition(
+        result.answers?.filter(
+          (answer) => isVerbalSection(answer.questionId?.section) && answer.questionId?.module === 1,
+        ) || [],
+      ),
     rwModule2:
-      result.answers?.filter(
-        (answer) => isVerbalSection(answer.questionId?.section) && answer.questionId?.module === 2,
-      ) || [],
-    mathModule1: result.answers?.filter((answer) => answer.questionId?.section === "Math" && answer.questionId?.module === 1) || [],
-    mathModule2: result.answers?.filter((answer) => answer.questionId?.section === "Math" && answer.questionId?.module === 2) || [],
+      sortReviewAnswersByPosition(
+        result.answers?.filter(
+          (answer) => isVerbalSection(answer.questionId?.section) && answer.questionId?.module === 2,
+        ) || [],
+      ),
+    mathModule1: sortReviewAnswersByPosition(
+      result.answers?.filter((answer) => answer.questionId?.section === "Math" && answer.questionId?.module === 1) || [],
+    ),
+    mathModule2: sortReviewAnswersByPosition(
+      result.answers?.filter((answer) => answer.questionId?.section === "Math" && answer.questionId?.module === 2) || [],
+    ),
   };
 }
 
