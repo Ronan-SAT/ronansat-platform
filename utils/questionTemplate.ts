@@ -1905,8 +1905,8 @@ function buildStyles(): string {
     }
 
     .display-math-block {
-      display: flex;
-      justify-content: center;
+      display: block;
+      text-align: center;
       width: 100%;
       margin: 0.1in 0 0.14in;
       padding: 0.02in 0;
@@ -1917,9 +1917,7 @@ function buildStyles(): string {
     }
 
     .display-math-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.035in;
+      display: block;
       width: 100%;
       margin: 0.1in 0 0.14in;
     }
@@ -1929,8 +1927,12 @@ function buildStyles(): string {
     }
 
     .display-math-group > .display-math-block {
-      margin: 0;
+      margin: 0 0 0.035in;
       padding: 0.02in 0;
+    }
+
+    .display-math-group > .display-math-block:last-child {
+      margin-bottom: 0;
     }
 
     .display-math-block > .katex-display {

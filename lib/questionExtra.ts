@@ -171,11 +171,24 @@ export function parseQuestionExtraTable(extra: unknown): ParsedQuestionExtraTabl
 
 export function getQuestionExtraSvgMarkup(extra: unknown): string | null {
   const normalized = normalizeQuestionExtra(extra);
-  if (!normalized || normalized.type === "table" || typeof normalized.content !== "string") {
+  if (!normalized || normalized.type === "table") {
     return null;
   }
 
-  const cleaned = normalized.content
+  let svgContent = "";
+
+  if (typeof normalized.content === "string") {
+    svgContent = normalized.content;
+  } else if (normalized.content && typeof normalized.content === "object") {
+    const structuredContent = normalized.content as { svg?: unknown };
+    svgContent = typeof structuredContent.svg === "string" ? structuredContent.svg : "";
+  }
+
+  if (!svgContent) {
+    return null;
+  }
+
+  const cleaned = svgContent
     .replace(/<\?xml[\s\S]*?\?>/gi, "")
     .replace(/<!DOCTYPE[\s\S]*?>/gi, "")
     .trim();

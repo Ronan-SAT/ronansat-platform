@@ -50,6 +50,10 @@ function buildPreparedQuestionPayload(row: AdminQuestionUploadRow, selectedTestI
     payload.imageUrl = imageUrl;
   }
 
+  if (row.extra !== undefined && row.extra !== null) {
+    payload.extra = row.extra;
+  }
+
   if (type === "multiple_choice") {
     const choices = [
       normalizeString(row.choice_0),

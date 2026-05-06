@@ -69,6 +69,13 @@ This file is the canonical agent-facing instruction document for repository-wide
 - Image-only flattening rasterizes pages and rebuilds a PDF from JPEG images so text cannot be selected/copied. The default production profile is 135 DPI, grayscale, JPEG quality 62 to keep full-length downloads near the low-MB range; override only after benchmarking.
 - The image-only script must be resumable for overnight jobs: skip readable existing outputs by default, use `PDF_FORCE=1` only when regenerating, and write each output through a temporary `.partial` file before rename.
 - `scripts/pdf/publishDrivePdfAssets.ts` is the Drive publish pipeline. It defaults to dry-run; `--execute` is required before rasterizing, uploading, and mutating Supabase.
+- The PDF pipeline has two distinct stages. First regenerate raw/vector PDFs from Supabase with `scripts/pdf/flattenSupabasePdfs.ts`; then publish with `scripts/pdf/publishDrivePdfAssets.ts`, which rasterizes locally, uploads to Google Drive, and inserts a new active Supabase row. Do not assume raw PDF regeneration has rasterized or updated Drive.
+- `scripts/pdf/flattenSupabasePdfs.ts` skips both HTML and PDF regeneration when the target PDF already exists unless `PDF_FORCE=1` is set. If Supabase question content or `utils/questionTemplate.ts` changed, force regeneration before inspecting `_html` or raw PDFs.
+- When debugging missing math, passages, tables, or choices in generated PDFs, inspect the matching raw HTML under `Desktop/flattened-pdfs/_html/<testId>-*.html` before blaming Chrome or Drive. If the HTML lacks the content, investigate the Supabase query/data mapping. If the HTML contains `<span class="katex-error">`, fix the parser/data and regenerate.
+- After PDF math/parser fixes, scan generated HTML for `katex-error` across the affected files. A fast Node scan over `Desktop/flattened-pdfs/_html` is more reliable than visually spot-checking one PDF because KaTeX uses `throwOnError: false` and can silently produce visible error spans while the PDF command still succeeds.
+- KaTeX/PDF parsing must support common SAT content forms including `$...$<br><br>$...$`, `\(...\)`, `\[...\]`, spaced constructs such as `\left (` and `\sqrt [a]`, and loose pipe tables with inline `$...$` in cells. Normalize line breaks before promoting standalone math so multiple math lines are not accidentally parsed as one expression.
+- Never run or recommend a broad Drive publish after PDF rendering changes until at least one affected raw HTML/PDF has been inspected and the relevant `_html` files no longer contain `katex-error`. Drive publishing preserves whatever the raw PDF already contains.
+- The scraped CSV conversion pipeline in `scripts/questions/convertScrapedCsvToAdminJson.ts` should use Codex CLI as the default answer/classification provider because it has more usable quota for large SAT batches. Keep Gemini CLI available only as an explicit fallback via `--ai-provider=gemini`.
 
 ## Client prefetch and test-engine rules
 
@@ -84,6 +91,8 @@ This file is the canonical agent-facing instruction document for repository-wide
 - In the test engine, the 75% answered threshold is a manual early-submit/early-next-module gate only. Timer expiry must call `handleSubmit({ trigger: "timer", bypassCompletionGate: true })`, advance full-length modules when applicable, and submit final/sectional attempts with unanswered questions saved as `"Omitted"`.
 - Manual test-engine submit paths should pass `trigger: "manual"` explicitly. `isSubmittingRef` must remain the first duplicate-submission guard so timer and manual click races cannot create double submissions.
 - The results API currently validates that `answers` is non-empty, not that a minimum percentage was answered. If server-side validation is added later, keep it compatible with timer-triggered omitted-answer submissions.
+- Review result grids and review-question next/back navigation must order answers by `questions.position`, not by `attempt_answers.id` or returned array order. Carry `questions.position` through review result payloads and sort per section/module so button labels map to the same question numbers students saw in the test.
+- When review payload shape changes in a way that affects persisted `sessionStorage` data, bump the relevant `REVIEW_CACHE_KEYS` version in `lib/services/reviewService.ts`; otherwise stale cached results can keep old ordering or missing fields after deploy.
 
 ## Documentation rules
 
