@@ -27,6 +27,7 @@ export type AdminQuestionUploadRow = {
   points?: number | string;
   passage?: string;
   imageUrl?: string;
+  extra?: unknown;
   choice_0?: string;
   choice_1?: string;
   choice_2?: string;
@@ -51,6 +52,7 @@ export type PreparedQuestionPayload = {
   points: number;
   passage?: string;
   imageUrl?: string;
+  extra?: unknown;
   choices?: string[];
   correctAnswer?: string;
   sprAnswers?: string[];

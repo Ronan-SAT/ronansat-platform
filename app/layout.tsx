@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, DM_Sans, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 
 import RouteProgressBar from "@/components/RouteProgressBar";
 import AppShell from "@/components/AppShell";
@@ -59,7 +60,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}>
-        <script id="initial-tab-load" dangerouslySetInnerHTML={{ __html: initialTabLoadScript }} />
+        <Script id="initial-tab-load" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: initialTabLoadScript }} />
         <RouteProgressBar />
         <AuthProvider session={session}>
           <PostHogProvider>

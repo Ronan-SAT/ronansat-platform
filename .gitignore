@@ -17,6 +17,9 @@
 /.next/
 /out/
 project_details.md
+.codex-gatecheap/
+codex-gatecheap.ps1
+codex-gatecheap.cmd
 # production
 /build
 

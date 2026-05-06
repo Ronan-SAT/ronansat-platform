@@ -1120,7 +1120,7 @@ export function TestManagerQuestionEditor({ cardId, initialData }: { cardId: str
                         <span>{report.source === "review" ? "Question from review" : "Question from test"}</span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-ink-fg">{report.additionalContext?.trim() ? report.additionalContext : "No extra note provided."}</p>
-                      <div className="mt-2 text-[11px] text-ink-fg/60">
+                      <div className="mt-2 text-[11px] text-ink-fg/60" suppressHydrationWarning>
                         {new Date(report.createdAt).toLocaleString()}
                         {report.reporterName ? ` • ${report.reporterName}` : ""}
                       </div>
