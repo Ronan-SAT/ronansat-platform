@@ -6,6 +6,7 @@ import path from "node:path";
 import Papa from "papaparse";
 import { z } from "zod";
 
+import { normalizeScrapedMarkdownHtml, repairScrapedMojibake } from "@/lib/scrapedQuestionContent";
 import type { AdminQuestionUploadRow } from "@/types/adminQuestion";
 
 type SourceKind = "bluebooky" | "satgpt";
@@ -61,6 +62,38 @@ type ConvertedQuestion = {
     extraTableCsv: string;
     extraSvg: string;
   };
+};
+
+type ReadyProvenanceEntry = {
+  readyIndex: number;
+  source: SourceKind;
+  sourceFile: string;
+  sourceKey: string;
+  csvRowNumber: number;
+  section: string;
+  module: number;
+  questionType: QuestionType;
+  questionText: string;
+};
+
+type ReadyProvenanceGroup = {
+  source: SourceKind;
+  sourceFile: string;
+  sourceKey: string;
+  readyIndexes: {
+    first: number;
+    last: number;
+    count: number;
+  };
+  csvRows: {
+    first: number;
+    last: number;
+  };
+  sections: Array<{
+    section: string;
+    module: number;
+    count: number;
+  }>;
 };
 
 type GeminiAnswer = {
@@ -333,11 +366,11 @@ function getCell(row: RawCsvRow, key: string) {
 }
 
 function normalizeText(value: string) {
-  return value
+  return repairScrapedMojibake(value)
     .replace(/^\uFEFF/u, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
-    .replace(/\\n/g, "\n")
+    .replace(/\\n(?![A-Za-z])/g, "\n")
     .replace(/\u00a0/g, " ")
     .trim();
 }
@@ -424,7 +457,7 @@ function normalizeLatexDelimiters(value: string) {
 }
 
 function normalizeContentForJson(value: string) {
-  return normalizeLatexDelimiters(normalizeText(value));
+  return normalizeScrapedMarkdownHtml(normalizeLatexDelimiters(normalizeText(value)));
 }
 
 function writeJsonAtomic(filePath: string, value: unknown) {
@@ -1753,12 +1786,32 @@ function writeOutputs(
   }
 
   const readyRows: AdminQuestionUploadRow[] = [];
+  const readyProvenance: ReadyProvenanceEntry[] = [];
+  const readyProvenanceByFile = new Map<string, ReadyProvenanceEntry[]>();
   const reviewItems: ConvertedQuestion[] = [];
   const missingRequests: unknown[] = [];
 
   for (const [key, fileItems] of byFile) {
-    const fileReady = fileItems.filter((item) => !item.skipped && item.issues.length === 0).map((item) => item.row);
+    const fileReadyItems = fileItems.filter((item) => !item.skipped && item.issues.length === 0);
+    const fileReady = fileReadyItems.map((item) => item.row);
     const fileReview = fileItems.filter((item) => item.skipped || item.issues.length > 0);
+
+    for (const item of fileReadyItems) {
+      const provenance: ReadyProvenanceEntry = {
+        readyIndex: readyProvenance.length + 1,
+        source: item.source,
+        sourceFile: item.sourceFile,
+        sourceKey: key,
+        csvRowNumber: item.csvRowNumber,
+        section: item.row.section,
+        module: item.row.module,
+        questionType: item.row.questionType,
+        questionText: item.row.questionText,
+      };
+      readyProvenance.push(provenance);
+      readyProvenanceByFile.set(key, [...(readyProvenanceByFile.get(key) ?? []), provenance]);
+    }
+
     readyRows.push(...fileReady);
     reviewItems.push(...fileReview);
     writeJsonAtomic(path.join(adminDir, `${key}.ready.json`), fileReady);
@@ -1797,8 +1850,43 @@ function writeOutputs(
       payloadHints: getPayloadHints(item),
     }));
 
+  const readyProvenanceGroups: ReadyProvenanceGroup[] = [...readyProvenanceByFile.entries()].map(([sourceKey, entries]) => {
+    const first = entries[0];
+    const sectionCounts = new Map<string, { section: string; module: number; count: number }>();
+    for (const entry of entries) {
+      const sectionKey = `${entry.section}::${entry.module}`;
+      const current = sectionCounts.get(sectionKey) ?? { section: entry.section, module: entry.module, count: 0 };
+      current.count += 1;
+      sectionCounts.set(sectionKey, current);
+    }
+
+    return {
+      source: first.source,
+      sourceFile: first.sourceFile,
+      sourceKey,
+      readyIndexes: {
+        first: entries[0].readyIndex,
+        last: entries[entries.length - 1].readyIndex,
+        count: entries.length,
+      },
+      csvRows: {
+        first: Math.min(...entries.map((entry) => entry.csvRowNumber)),
+        last: Math.max(...entries.map((entry) => entry.csvRowNumber)),
+      },
+      sections: [...sectionCounts.values()],
+    };
+  });
+
   writeJsonAtomic(path.join(adminDir, "all.ready.json"), readyRows);
   writeJsonAtomic(path.join(adminDir, "all.needs_review.json"), reviewItems);
+  writeJsonAtomic(path.join(reportDir, "ready-provenance.json"), {
+    summary: {
+      ready: readyRows.length,
+      sources: readyProvenanceGroups.length,
+    },
+    groups: readyProvenanceGroups,
+    items: readyProvenance,
+  });
   writeJsonAtomic(path.join(reportDir, "conversion-report.json"), summary);
   writeJsonAtomic(path.join(reportDir, "errors.json"), conversionErrors);
   writeJsonAtomic(path.join(reportDir, "source-data-errors.json"), sourceDataErrors);
