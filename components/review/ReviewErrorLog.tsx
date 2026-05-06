@@ -7,6 +7,7 @@ import { CompactPagination } from "@/components/ui/CompactPagination";
 import { PaginatedStickyTableShell } from "@/components/ui/PaginatedStickyTableShell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getClientCache, setClientCache } from "@/lib/clientCache";
+import { formatAppDateTime } from "@/lib/dateFormat";
 import {
   REVIEW_REASON_COLOR_PRESETS,
   createReviewReasonId,
@@ -65,16 +66,14 @@ function formatErrorLogTimestamp(value?: string) {
     return { dateTimeLabel: "Unknown --" };
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return { dateTimeLabel: "Unknown --" };
-  }
-
   return {
-    dateTimeLabel: `${date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} ${date.toLocaleTimeString(undefined, {
+    dateTimeLabel: formatAppDateTime(value, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
       hour: "numeric",
       minute: "2-digit",
-    })}`,
+    }, "Unknown --"),
   };
 }
 

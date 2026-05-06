@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { formatAppDate } from "@/lib/dateFormat";
+
 export function formatGroupDate(value: string | null, withTime = false) {
   if (!value) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return formatAppDate(value, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -16,7 +18,7 @@ export function formatGroupDate(value: string | null, withTime = false) {
           minute: "2-digit",
         }
       : {}),
-  }).format(new Date(value));
+  }, "-");
 }
 
 export function formatGroupScore(value: number | null) {

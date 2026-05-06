@@ -8,6 +8,7 @@ import {
 
 import { getReviewScoreLabel } from "@/components/review/reviewPage.utils";
 import { useIntentPrefetch } from "@/hooks/useIntentPrefetch";
+import { formatAppDate } from "@/lib/dateFormat";
 import type { ReviewResult } from "@/types/review";
 
 type ReviewResultsSidebarProps = {
@@ -137,7 +138,7 @@ function ReviewResultButton({
         ) : null}
         <div className="mt-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-fg/70">
           <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-          {new Date(result.date || result.createdAt || "").toLocaleDateString()}
+          {formatAppDate(result.date || result.createdAt, { month: "numeric", day: "numeric", year: "numeric" })}
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">

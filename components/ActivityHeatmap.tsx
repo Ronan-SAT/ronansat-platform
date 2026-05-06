@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 
+import { dateFromAppDateKey, formatAppDate, formatAppDateKey } from "@/lib/dateFormat";
+
 import type { DashboardActivityDay } from "@/types/dashboard";
 
 interface ActivityHeatmapProps {
@@ -10,8 +12,11 @@ interface ActivityHeatmapProps {
 
 export default function ActivityHeatmap({ activity }: ActivityHeatmapProps) {
   const { heatmapData } = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const latestActivityKey = activity.map((day) => day.dateKey).sort().at(-1);
+    const today = dateFromAppDateKey(latestActivityKey ?? formatAppDateKey()) ?? dateFromAppDateKey(formatAppDateKey());
+    if (!today) {
+      return { heatmapData: [] };
+    }
 
     const last30Days = Array.from({ length: 30 }, (_, index) => {
       const date = new Date(today);
@@ -27,7 +32,7 @@ export default function ActivityHeatmap({ activity }: ActivityHeatmapProps) {
 
     return {
       heatmapData: last30Days.map((date) => {
-        const dateKey = date.toISOString().split("T")[0];
+        const dateKey = formatAppDateKey(date);
         return {
           date,
           count: activityMap.get(dateKey) || 0,
@@ -72,7 +77,7 @@ export default function ActivityHeatmap({ activity }: ActivityHeatmapProps) {
                 {day.count} test{day.count !== 1 ? "s" : ""}
               </div>
               <div className="text-ink-fg/70">
-                {day.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {formatAppDate(day.date)}
               </div>
             </div>
           </div>

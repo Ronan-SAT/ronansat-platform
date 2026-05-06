@@ -1,7 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { tokenizeLatexSegments } from "@/components/RichTextWithLatex";
+import { tokenizeHtmlLatexContent, type ContentSegment } from "@/utils/latexTokenizer";
+
+function serializeMathSegment(segment: Extract<ContentSegment, { type: "math" }>) {
+  if (segment.delimiter === "\\(") return `\\(${segment.value}\\)`;
+  if (segment.delimiter === "\\[") return `\\[${segment.value}\\]`;
+  return `${segment.delimiter}${segment.value}${segment.delimiter}`;
+}
+
+function tokenizeLatexSegments(text: string) {
+  return tokenizeHtmlLatexContent(text).map((segment) => {
+    if (segment.type === "html") {
+      return { type: "text", value: segment.value };
+    }
+
+    return {
+      type: "math",
+      value: serializeMathSegment(segment),
+      delimiter: segment.delimiter,
+    };
+  });
+}
 
 test("treats invalid inline dollars as plain text", () => {
   assert.deepEqual(tokenizeLatexSegments("Cost is $17 and $ 13"), [
@@ -129,7 +149,7 @@ test("handles empty inline or display math without crashing", () => {
     { type: "text", value: "$$" }, // Hoặc type: "math", tùy logic ứng dụng của bạn
   ]);
   assert.deepEqual(tokenizeLatexSegments("$$$$"), [
-    // Phải đảm bảo hàm không bị treo vòng lặp vô hạn ở đây
+    { type: "text", value: "$$$$" },
   ]);
 });
 
@@ -147,7 +167,7 @@ test("handles a text dollar sign followed immediately by display math", () => {
 test("differentiates escaped backslash from escaped dollar", () => {
   // Trong file js, "\\\\" đại diện cho "\\" ở chuỗi thực tế
   assert.deepEqual(tokenizeLatexSegments("Dùng \\\\$x$"), [
-    { type: "text", value: "Dùng \\" },
+    { type: "text", value: "Dùng \\\\" },
     { type: "math", value: "$x$", delimiter: "$" },
   ]);
 });

@@ -7,6 +7,7 @@ import { marked } from "marked";
 
 import { estimateQuestionExtraUnits, getQuestionExtraSvgMarkup, parseQuestionExtraTable, type QuestionExtra } from "@/lib/questionExtra";
 import { isVerbalSection, MATH_SECTION, VERBAL_SECTION } from "@/lib/sections";
+import { tokenizeHtmlLatexContent, type ContentSegment } from "@/utils/latexTokenizer";
 
 type RawQuestion = {
   order?: number;
@@ -132,7 +133,6 @@ const COLUMN_LIMITS: Record<string, number> = {
 const FRACTION_PATTERN = /\\frac/;
 const SUPERSCRIPT_PATTERN = /\^(\{[^}]+\}|\\[a-zA-Z]+|\S)/g;
 const NON_TALL_SUPERSCRIPT_PATTERN = /^(?:\{)?(?:\\circ|\\degree|\\deg|°)(?:\})?$/;
-const MATH_DELIMITER_PATTERN = /(?<!\\)(\$\$?)(.*?)(?<!\\)\1/gs;
 const BARE_LATEX_PATTERN =
   /(?<![$\\])\\(?:frac|dfrac|tfrac|sqrt|left|right|cdot|times|div|pi|theta|alpha|beta|gamma|delta|lambda|mu|angle|triangle|overline|underline|bar|hat|vec|sin|cos|tan|log|ln|pm|leq|geq|neq|approx|degree|circ)(?:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\\[a-zA-Z]+|[+\-]?\d+(?:\.\d+)?|[a-zA-Z0-9]))*/g;
 const KATEX_DIST_DIR = path.join(process.cwd(), "node_modules", "katex", "dist");
@@ -259,12 +259,15 @@ function parseText(
 
   const textWithBareLatexWrapped = wrapBareLatexOutsideDelimitedMath(normalizedText);
 
-  const parsedMath = textWithBareLatexWrapped.replace(
-    MATH_DELIMITER_PATTERN,
-    (match, prefix, mathText) => {
+  const parsedMath = tokenizeHtmlLatexContent(textWithBareLatexWrapped)
+    .map((segment) => {
+      if (segment.type === "html") {
+        return segment.value;
+      }
+
       try {
-        const isDisplayMath = prefix === "$$";
-        const normalizedMathText = normalizeKatexMathText(mathText.trim());
+        const isDisplayMath = segment.delimiter === "$$" || segment.delimiter === "\\[";
+        const normalizedMathText = normalizeKatexMathText(segment.value.trim());
         const renderMathText =
           !isDisplayMath && options?.loosenTallInlineMath && hasTallMath(normalizedMathText)
             ? `\\displaystyle ${loosenTallInlineMathText(normalizedMathText)}`
@@ -279,10 +282,10 @@ function parseText(
           ? `\n<div class="display-math-block">${renderedMath}</div>\n`
           : renderedMath;
       } catch {
-        return match;
+        return serializeMathSegment(segment);
       }
-    },
-  );
+    })
+    .join("");
 
   const parsedHtml = addPdfTableClasses(marked.parse(parsedMath) as string);
 
@@ -416,18 +419,15 @@ function addPdfTableClasses(html: string): string {
 }
 
 function wrapBareLatexOutsideDelimitedMath(text: string): string {
-  let output = "";
-  let lastIndex = 0;
+  return tokenizeHtmlLatexContent(text)
+    .map((segment) => {
+      if (segment.type === "html") {
+        return wrapBareLatex(segment.value);
+      }
 
-  for (const match of text.matchAll(MATH_DELIMITER_PATTERN)) {
-    const matchIndex = match.index ?? 0;
-    output += wrapBareLatex(text.slice(lastIndex, matchIndex));
-    output += match[0];
-    lastIndex = matchIndex + match[0].length;
-  }
-
-  output += wrapBareLatex(text.slice(lastIndex));
-  return output;
+      return serializeMathSegment(segment);
+    })
+    .join("");
 }
 
 function wrapBareLatex(text: string): string {
@@ -440,6 +440,18 @@ function wrapBareLatex(text: string): string {
 
     return `$${trimmed}$`;
   });
+}
+
+function serializeMathSegment(segment: Extract<ContentSegment, { type: "math" }>): string {
+  if (segment.delimiter === "\\(") {
+    return `\\(${segment.value}\\)`;
+  }
+
+  if (segment.delimiter === "\\[") {
+    return `\\[${segment.value}\\]`;
+  }
+
+  return `${segment.delimiter}${segment.value}${segment.delimiter}`;
 }
 
 function renderInlineMath(mathText: string): string {
@@ -1905,8 +1917,8 @@ function buildStyles(): string {
     }
 
     .display-math-block {
-      display: block;
-      text-align: center;
+      display: flex;
+      justify-content: center;
       width: 100%;
       margin: 0.1in 0 0.14in;
       padding: 0.02in 0;
@@ -1917,7 +1929,9 @@ function buildStyles(): string {
     }
 
     .display-math-group {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: 0.035in;
       width: 100%;
       margin: 0.1in 0 0.14in;
     }
@@ -1927,12 +1941,8 @@ function buildStyles(): string {
     }
 
     .display-math-group > .display-math-block {
-      margin: 0 0 0.035in;
+      margin: 0;
       padding: 0.02in 0;
-    }
-
-    .display-math-group > .display-math-block:last-child {
-      margin-bottom: 0;
     }
 
     .display-math-block > .katex-display {

@@ -5,27 +5,31 @@ import { useMemo } from "react";
 import { Flame, Target, Trophy } from "lucide-react";
 
 import ActivityHeatmap from "@/components/ActivityHeatmap";
+import { dateFromAppDateKey, formatAppDateKey } from "@/lib/dateFormat";
 import type { DashboardActivityDay } from "@/types/dashboard";
 import type { UserStatsSummary } from "@/types/testLibrary";
 
-interface UserStatsPanelProps {    // Quy định 2 data input khi dùng UserStatsPanelProps
+interface UserStatsPanelProps {
   userStats: UserStatsSummary;
   activity: DashboardActivityDay[];
 }
 
-export default function UserStatsPanel({ userStats, activity }: UserStatsPanelProps) {    // Logic tính streak: Reset về đầu mỗi ngày + chạy vòng lặp
+export default function UserStatsPanel({ userStats, activity }: UserStatsPanelProps) {
   const currentStreak = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const latestActivityKey = activity.map((day) => day.dateKey).sort().at(-1);
+    const today = dateFromAppDateKey(latestActivityKey ?? formatAppDateKey()) ?? dateFromAppDateKey(formatAppDateKey());
+    if (!today) {
+      return 0;
+    }
 
-    const activeDays = new Set(                                                     // activeDays là array chứa các ngày có làm test
+    const activeDays = new Set(
       activity.filter((day) => day.count > 0).map((day) => day.dateKey),
     );
 
     let streak = 0;
-    const cursor = new Date(today);   // con trỏ thời gian, bắt đầu từ hôm nay
+    const cursor = new Date(today);
 
-    while (activeDays.has(cursor.toISOString().split("T")[0])) {   // Tính tổng các ngày active
+    while (activeDays.has(formatAppDateKey(cursor))) {
       streak += 1;
       cursor.setDate(cursor.getDate() - 1);
     }
@@ -51,7 +55,7 @@ export default function UserStatsPanel({ userStats, activity }: UserStatsPanelPr
             <div className="min-w-0 pt-1">
               <p className="text-sm font-medium text-ink-fg/70">Highest Score</p>
               <p className="mt-2 font-display text-4xl font-black tracking-tight text-ink-fg">
-                {userStats.highestScore > 0 ? userStats.highestScore : "—"}
+                {userStats.highestScore > 0 ? userStats.highestScore : "-"}
               </p>
             </div>
           </div>

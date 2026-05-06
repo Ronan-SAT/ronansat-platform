@@ -75,7 +75,6 @@ This file is the canonical agent-facing instruction document for repository-wide
 - After PDF math/parser fixes, scan generated HTML for `katex-error` across the affected files. A fast Node scan over `Desktop/flattened-pdfs/_html` is more reliable than visually spot-checking one PDF because KaTeX uses `throwOnError: false` and can silently produce visible error spans while the PDF command still succeeds.
 - KaTeX/PDF parsing must support common SAT content forms including `$...$<br><br>$...$`, `\(...\)`, `\[...\]`, spaced constructs such as `\left (` and `\sqrt [a]`, and loose pipe tables with inline `$...$` in cells. Normalize line breaks before promoting standalone math so multiple math lines are not accidentally parsed as one expression.
 - Never run or recommend a broad Drive publish after PDF rendering changes until at least one affected raw HTML/PDF has been inspected and the relevant `_html` files no longer contain `katex-error`. Drive publishing preserves whatever the raw PDF already contains.
-- The scraped CSV conversion pipeline in `scripts/questions/convertScrapedCsvToAdminJson.ts` should use Codex CLI as the default answer/classification provider because it has more usable quota for large SAT batches. Keep Gemini CLI available only as an explicit fallback via `--ai-provider=gemini`.
 
 ## Client prefetch and test-engine rules
 

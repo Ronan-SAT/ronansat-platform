@@ -1,6 +1,5 @@
 import { API_PATHS } from "@/lib/apiPaths";
 import api from "@/lib/axios";
-import { normalizeScrapedMarkdownHtml, repairScrapedMojibake } from "@/lib/scrapedQuestionContent";
 import { normalizeSectionName, VERBAL_SECTION } from "@/lib/sections";
 import type {
   AdminQuestionUploadRow,
@@ -22,11 +21,7 @@ type QuestionImportErrorPayload = {
 };
 
 function normalizeString(value: unknown) {
-  return repairScrapedMojibake(String(value || "")).trim();
-}
-
-function normalizeContentString(value: unknown) {
-  return normalizeScrapedMarkdownHtml(String(value || ""));
+  return String(value || "").trim();
 }
 
 function buildPreparedQuestionPayload(row: AdminQuestionUploadRow, selectedTestId: string): PreparedQuestionPayload {
@@ -38,13 +33,13 @@ function buildPreparedQuestionPayload(row: AdminQuestionUploadRow, selectedTestI
     skill: normalizeString(row.skill),
     module: Number(row.module) || 1,
     questionType: type,
-    questionText: normalizeContentString(row.questionText),
-    explanation: normalizeContentString(row.explanation),
+    questionText: normalizeString(row.questionText),
+    explanation: normalizeString(row.explanation),
     difficulty: normalizeString(row.difficulty || "medium").toLowerCase(),
     points: Number(row.points) || 10,
   };
 
-  const passage = normalizeContentString(row.passage);
+  const passage = normalizeString(row.passage);
   const imageUrl = normalizeString(row.imageUrl);
 
   if (passage) {
@@ -61,10 +56,10 @@ function buildPreparedQuestionPayload(row: AdminQuestionUploadRow, selectedTestI
 
   if (type === "multiple_choice") {
     const choices = [
-      normalizeContentString(row.choice_0),
-      normalizeContentString(row.choice_1),
-      normalizeContentString(row.choice_2),
-      normalizeContentString(row.choice_3),
+      normalizeString(row.choice_0),
+      normalizeString(row.choice_1),
+      normalizeString(row.choice_2),
+      normalizeString(row.choice_3),
     ];
 
     payload.choices = choices;
