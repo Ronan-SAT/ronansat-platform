@@ -11,6 +11,7 @@ import QuestionExtraBlock from "@/components/question/QuestionExtraBlock";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+import { formatAppDateTime } from "@/lib/dateFormat";
 import type { QuestionExtra } from "@/lib/questionExtra";
 import { VERBAL_SECTION } from "@/lib/sections";
 import { fetchNextTestManagerQuestion } from "@/lib/services/testManagerCatalogClient";
@@ -1120,9 +1121,17 @@ export function TestManagerQuestionEditor({ cardId, initialData }: { cardId: str
                         <span>{report.source === "review" ? "Question from review" : "Question from test"}</span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-ink-fg">{report.additionalContext?.trim() ? report.additionalContext : "No extra note provided."}</p>
-                      <div className="mt-2 text-[11px] text-ink-fg/60" suppressHydrationWarning>
-                        {new Date(report.createdAt).toLocaleString()}
-                        {report.reporterName ? ` • ${report.reporterName}` : ""}
+                      <div className="mt-2 text-[11px] text-ink-fg/60">
+                        {formatAppDateTime(report.createdAt, {
+                          month: "numeric",
+                          day: "numeric",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: false,
+                        })}
+                        {report.reporterName ? ` - ${report.reporterName}` : ""}
                       </div>
                     </article>
                   ))}

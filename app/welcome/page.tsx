@@ -8,6 +8,7 @@ import { CheckCircle2, Cake, LoaderCircle, UserRound } from "lucide-react";
 import InitialTabBootReady from "@/components/InitialTabBootReady";
 import api from "@/lib/axios";
 import { API_PATHS } from "@/lib/apiPaths";
+import { formatAppDateKey } from "@/lib/dateFormat";
 import { getPostAuthRedirectPath } from "@/lib/getPostAuthRedirectPath";
 import {
   USERNAME_REQUIREMENTS,
@@ -262,7 +263,7 @@ export default function WelcomePage() {
                     value={birthDate}
                     onChange={(event) => setBirthDate(event.target.value)}
                     className="workbook-input pr-12"
-                    max={new Date().toISOString().slice(0, 10)}
+                    max={formatAppDateKey()}
                   />
                   <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-ink-fg/60">
                     <Cake className="h-5 w-5" />

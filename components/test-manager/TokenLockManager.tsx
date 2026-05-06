@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LockKeyhole, Save, Search, Trash2, UnlockKeyhole } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatAppDate } from "@/lib/dateFormat";
 import {
   fetchLockedTestsForManager,
   removeLockedTestForManager,
@@ -30,12 +31,7 @@ function formatDate(value?: string) {
     return "Not locked";
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown";
-  }
-
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return formatAppDate(value);
 }
 
 function getVisibleOptions(tests: TestManagerLockedTestRow[], selectedTestId: string, query: string) {

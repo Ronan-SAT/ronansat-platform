@@ -43,6 +43,7 @@ const QUOTES: Quote[] = [
 
 const QUOTE_CHANGE_INTERVAL_MS = 3200;
 const QUOTE_FADE_DURATION_MS = 420;
+const INITIAL_QUOTE_INDEX = 0;
 
 function getRandomQuoteIndex(excludeIndex?: number) {
   if (QUOTES.length <= 1) {
@@ -59,7 +60,7 @@ function getRandomQuoteIndex(excludeIndex?: number) {
 }
 
 export default function SimpleLoading({ showQuote = true }: SimpleLoadingProps) {
-  const [quoteIndex, setQuoteIndex] = useState<number | null>(() => (showQuote ? getRandomQuoteIndex() : 0));
+  const [quoteIndex, setQuoteIndex] = useState<number | null>(() => (showQuote ? INITIAL_QUOTE_INDEX : 0));
   const [isVisible, setIsVisible] = useState(true);
   const timeoutRef = useRef<number | null>(null);
 

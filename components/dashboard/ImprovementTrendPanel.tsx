@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from "recharts";
 
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { dateFromAppDateKey, formatAppDate, formatAppDateKey } from "@/lib/dateFormat";
 import type { DashboardTrendPoint } from "@/types/dashboard";
 
 type ImprovementTrendPanelProps = {
@@ -169,8 +170,21 @@ function MetricCard({ label, value, accentClassName }: { label: string; value: s
 }
 
 function buildRangeSummary(trend: DashboardTrendPoint[], range: RangeOption) {
-  const end = new Date();
-  end.setHours(0, 0, 0, 0);
+  const latestTrendKey = trend.map((point) => point.dateKey).sort().at(-1);
+  const end = dateFromAppDateKey(latestTrendKey ?? formatAppDateKey()) ?? dateFromAppDateKey(formatAppDateKey());
+  if (!end) {
+    return {
+      chartData: [],
+      domain: [400, 1600] as [number, number],
+      ticks: [400, 1000, 1600],
+      hasData: false,
+      latestScoreLabel: "-",
+      scoreChange: 0,
+      scoreChangeLabel: "-",
+      tests: 0,
+      footerText: "Add a few more attempts in this window to surface a clearer trend line.",
+    };
+  }
 
   const start = new Date(end);
   start.setDate(start.getDate() - (range - 1));
@@ -186,14 +200,14 @@ function buildRangeSummary(trend: DashboardTrendPoint[], range: RangeOption) {
     const currentDate = new Date(start);
     currentDate.setDate(start.getDate() + index);
 
-    const dateKey = currentDate.toISOString().split("T")[0];
+    const dateKey = formatAppDateKey(currentDate);
     const point = trendByDate.get(dateKey);
     tests += point?.tests ?? 0;
 
     chartData.push({
       dateKey,
-      shortLabel: currentDate.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      fullLabel: currentDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }),
+      shortLabel: formatAppDate(currentDate, { month: "short", day: "numeric" }),
+      fullLabel: formatAppDate(currentDate, { weekday: "short", month: "short", day: "numeric" }),
       score: point?.score ?? null,
     });
   }

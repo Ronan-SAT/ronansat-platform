@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { formatAppDate } from "@/lib/dateFormat";
 import { isVerbalSection } from "@/lib/sections";
 import type { DashboardRecentResult } from "@/types/dashboard";
 
@@ -8,11 +9,7 @@ type RecentResultsListProps = {
 };
 
 function getDisplayDate(result: DashboardRecentResult) {
-  return new Date(result.createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatAppDate(result.createdAt);
 }
 
 function getDisplayScore(result: DashboardRecentResult) {

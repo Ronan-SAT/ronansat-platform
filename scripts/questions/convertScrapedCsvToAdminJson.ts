@@ -6,12 +6,10 @@ import path from "node:path";
 import Papa from "papaparse";
 import { z } from "zod";
 
-import { normalizeScrapedMarkdownHtml, repairScrapedMojibake } from "@/lib/scrapedQuestionContent";
 import type { AdminQuestionUploadRow } from "@/types/adminQuestion";
 
 type SourceKind = "bluebooky" | "satgpt";
 type QuestionType = "multiple_choice" | "spr";
-type AiProvider = "codex" | "gemini";
 
 type RawCsvRow = Record<string, string | undefined>;
 
@@ -64,38 +62,6 @@ type ConvertedQuestion = {
   };
 };
 
-type ReadyProvenanceEntry = {
-  readyIndex: number;
-  source: SourceKind;
-  sourceFile: string;
-  sourceKey: string;
-  csvRowNumber: number;
-  section: string;
-  module: number;
-  questionType: QuestionType;
-  questionText: string;
-};
-
-type ReadyProvenanceGroup = {
-  source: SourceKind;
-  sourceFile: string;
-  sourceKey: string;
-  readyIndexes: {
-    first: number;
-    last: number;
-    count: number;
-  };
-  csvRows: {
-    first: number;
-    last: number;
-  };
-  sections: Array<{
-    section: string;
-    module: number;
-    count: number;
-  }>;
-};
-
 type GeminiAnswer = {
   id: string;
   cacheKey?: string;
@@ -112,7 +78,6 @@ type GeminiAnswer = {
 
 type GeminiDebugEntry = {
   type: "api_attempt" | "malformed_json" | "needs_review" | "invalid_answer";
-  provider?: AiProvider;
   batchIds?: string[];
   itemId?: string;
   cacheKey?: string;
@@ -135,8 +100,6 @@ type GeminiDebugEntry = {
 };
 
 type RunSummary = {
-  aiProvider: AiProvider;
-  aiModel: string;
   sources: Record<SourceKind, number>;
   rowsRead: number;
   parseErrors: number;
@@ -260,26 +223,6 @@ function isValidTaxonomy(section: string, domain: string, skill: string) {
   return Boolean(sectionDomains[domain]?.includes(skill));
 }
 
-function findTaxonomyForSkill(section: string, skill: string) {
-  const trimmedSkill = normalizeText(skill);
-  const sections = isTaxonomySection(section) ? [section] : Object.keys(sectionTaxonomy);
-
-  for (const sectionName of sections) {
-    const domains = sectionTaxonomy[sectionName as TaxonomySection] as Record<string, readonly string[]>;
-    for (const [domainName, skills] of Object.entries(domains)) {
-      if (skills.includes(trimmedSkill)) {
-        return {
-          section: sectionName,
-          domain: domainName,
-          skill: trimmedSkill,
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
 function taxonomyPromptText() {
   return JSON.stringify(sectionTaxonomy, null, 2);
 }
@@ -348,29 +291,21 @@ const satgptDir = args.get("satgpt-dir") ?? defaultSatgptDir;
 const outputDir = args.get("out") ?? defaultOutputDir;
 const shouldFillMissingAnswers = args.get("fill-missing-answers") === "true";
 const shouldClassifyMetadata = args.get("classify-metadata") === "true" || shouldFillMissingAnswers;
-const aiProvider = (args.get("ai-provider") ?? "codex") as AiProvider;
-const aiBatchSize = Number.parseInt(args.get("ai-batch") ?? args.get("gemini-batch") ?? "12", 10);
-const aiLimit = Number.parseInt(args.get("ai-limit") ?? args.get("gemini-limit") ?? "0", 10);
-const aiOffset = Number.parseInt(args.get("ai-offset") ?? args.get("gemini-offset") ?? "0", 10);
-const codexHome = args.get("codex-home") ?? process.env.CODEX_HOME ?? "C:\\Users\\MHC\\.codex-gatecheap";
-const codexModel = args.get("codex-model") ?? args.get("ai-model") ?? "";
+const geminiBatchSize = Number.parseInt(args.get("gemini-batch") ?? "12", 10);
+const geminiLimit = Number.parseInt(args.get("gemini-limit") ?? "0", 10);
 const geminiModel = args.get("gemini-model") ?? "gemini-2.5-pro";
 const geminiDebugLog: GeminiDebugEntry[] = [];
-
-if (aiProvider !== "codex" && aiProvider !== "gemini") {
-  throw new Error(`Unsupported --ai-provider=${aiProvider}. Use "codex" or "gemini".`);
-}
 
 function getCell(row: RawCsvRow, key: string) {
   return normalizeText(row[key] ?? "");
 }
 
 function normalizeText(value: string) {
-  return repairScrapedMojibake(value)
+  return value
     .replace(/^\uFEFF/u, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
-    .replace(/\\n(?![A-Za-z])/g, "\n")
+    .replace(/\\n/g, "\n")
     .replace(/\u00a0/g, " ")
     .trim();
 }
@@ -457,7 +392,7 @@ function normalizeLatexDelimiters(value: string) {
 }
 
 function normalizeContentForJson(value: string) {
-  return normalizeScrapedMarkdownHtml(normalizeLatexDelimiters(normalizeText(value)));
+  return normalizeLatexDelimiters(normalizeText(value));
 }
 
 function writeJsonAtomic(filePath: string, value: unknown) {
@@ -478,20 +413,6 @@ function sleepSync(ms: number) {
 
 function isRateLimitOutput(value: string) {
   return /quota|rate limit|resource exhausted|too many requests|429/i.test(value);
-}
-
-function isProviderCredentialOutput(value: string) {
-  return /no active credentials|invalid api key|unauthorized|authentication|401|403|404 not found/i.test(value);
-}
-
-function summarizeCliFailure(value: string) {
-  const lines = value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => /error|no active credentials|unexpected status|quota|rate limit|unauthorized|forbidden|not found|provider|model/i.test(line));
-  const summary = lines.length > 0 ? lines.join("\n") : value;
-  return summary.replace(/<html>[\s\S]*$/i, "<html response omitted>").slice(0, 1600);
 }
 
 function decodeHtmlEntities(value: string) {
@@ -1170,16 +1091,6 @@ function saveGeminiCache(cachePath: string, cache: Map<string, GeminiAnswer>) {
   writeJsonAtomic(cachePath, [...cache.values()].sort((left, right) => (left.cacheKey ?? left.id).localeCompare(right.cacheKey ?? right.id)));
 }
 
-function getAiCachePath(reportDir = path.join(outputDir, "reports")) {
-  return path.join(reportDir, `${aiProvider}-answer-cache.json`);
-}
-
-function getAiProviderLabel() {
-  return aiProvider === "codex"
-    ? `Codex CLI${codexModel ? ` (${codexModel})` : ""} [CODEX_HOME=${codexHome}]`
-    : `Gemini CLI (${geminiModel})`;
-}
-
 function buildGeminiPrompt(batch: ConvertedQuestion[]) {
   const payload = batch.map((item) => {
     const row = item.row;
@@ -1237,7 +1148,7 @@ function parseGeminiJson(output: string): GeminiAnswer[] {
     }
   }
 
-  throw new Error(`${getAiProviderLabel()} returned malformed JSON: ${output.slice(0, 500)}`);
+  throw new Error(`Gemini returned malformed JSON: ${output.slice(0, 500)}`);
 }
 
 function getPayloadHints(item: ConvertedQuestion): NonNullable<GeminiDebugEntry["payloadHints"]> {
@@ -1265,7 +1176,7 @@ function getSourceDataIssue(item: ConvertedQuestion) {
   const hasChoices = hints.hasChoices;
   const tableLikeOnly = item.row.questionType === "spr"
     && !hasChoices
-    && (hints.hasExtraTableCsv || hints.hasExtraSvg)
+    && hints.hasExtraTableCsv
     && !passage
     && questionText.length > 0
     && questionText.length < 160
@@ -1345,7 +1256,6 @@ function callGemini(batch: ConvertedQuestion[]) {
     const combinedOutput = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
     geminiDebugLog.push({
       type: "api_attempt",
-      provider: "gemini",
       batchIds: batch.map((item) => item.id),
       attempt,
       status: result.status,
@@ -1360,7 +1270,6 @@ function callGemini(batch: ConvertedQuestion[]) {
         lastError = error instanceof Error ? error.message : String(error);
         geminiDebugLog.push({
           type: "malformed_json",
-          provider: "gemini",
           batchIds: batch.map((item) => item.id),
           attempt,
           reason: lastError,
@@ -1393,100 +1302,6 @@ function callGemini(batch: ConvertedQuestion[]) {
   throw new Error(`Gemini failed for ${geminiModel}: ${lastError.slice(0, 1000)}`);
 }
 
-function callCodex(batch: ConvertedQuestion[]) {
-  const basePrompt = [
-    "You are answering a data-conversion subtask. Do not edit files or run commands.",
-    buildGeminiPrompt(batch),
-  ].join("\n\n");
-  let lastError = "";
-  const modelCandidates = codexModel ? [codexModel, ""] : [""];
-
-  for (const modelCandidate of modelCandidates) {
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      const outputPath = path.join(outputDir, "reports", `.codex-response-${Date.now()}-${attempt}.txt`);
-      const strictPrefix = attempt === 1
-        ? "Return a raw JSON array only. Do not wrap it in markdown fences. Do not include prose."
-        : "Your previous response or request failed. Return ONLY a syntactically valid raw JSON array with no markdown, no comments, and no prose.";
-      const command = [
-        "$arguments = @('exec', '--sandbox', 'read-only', '--cd', $env:CODEX_CWD, '--output-last-message', $env:CODEX_OUTPUT_FILE, '-');",
-        "if ($env:CODEX_MODEL) { $arguments = @('exec', '--model', $env:CODEX_MODEL, '--sandbox', 'read-only', '--cd', $env:CODEX_CWD, '--output-last-message', $env:CODEX_OUTPUT_FILE, '-'); }",
-        "$input | codex @arguments",
-      ].join(" ");
-      const result = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command], {
-        input: `${strictPrefix}\n\n${basePrompt}`,
-        encoding: "utf8",
-        maxBuffer: 1024 * 1024 * 16,
-        env: {
-          ...process.env,
-          CODEX_HOME: codexHome,
-          CODEX_CWD: process.cwd(),
-          CODEX_MODEL: modelCandidate,
-          CODEX_OUTPUT_FILE: outputPath,
-        },
-      });
-      const stdout = existsSync(outputPath) ? readFileSync(outputPath, "utf8") : (result.stdout ?? "");
-      const combinedOutput = `${stdout}\n${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
-      geminiDebugLog.push({
-        type: "api_attempt",
-        provider: "codex",
-        batchIds: batch.map((item) => item.id),
-        attempt,
-        status: result.status,
-        reason: modelCandidate ? `model=${modelCandidate}` : "model=codex-config-default",
-        stdoutPreview: stdout.slice(0, 1200),
-        stderrPreview: summarizeCliFailure(result.stderr ?? "").slice(0, 1200),
-      });
-
-      if (result.status === 0) {
-        try {
-          return parseGeminiJson(stdout);
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
-          geminiDebugLog.push({
-            type: "malformed_json",
-            provider: "codex",
-            batchIds: batch.map((item) => item.id),
-            attempt,
-            reason: lastError,
-            stdoutPreview: stdout.slice(0, 2400),
-            stderrPreview: summarizeCliFailure(result.stderr ?? "").slice(0, 1200),
-          });
-          if (attempt < 5) {
-            sleepSync(1000 * attempt);
-            continue;
-          }
-          break;
-        }
-      }
-
-      lastError = combinedOutput;
-      if (modelCandidate && isProviderCredentialOutput(combinedOutput)) {
-        console.log(`Codex CLI model ${modelCandidate} failed at provider level; retrying with Codex config default model.`);
-        break;
-      }
-
-      if (isRateLimitOutput(combinedOutput) && attempt < 5) {
-        const delayMs = Math.min(120000, (2 ** (attempt - 1)) * 5000 + Math.floor(Math.random() * 1000));
-        console.log(`Codex CLI rate limited; retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt}/5)`);
-        sleepSync(delayMs);
-        continue;
-      }
-
-      break;
-    }
-  }
-
-  if (isRateLimitOutput(lastError)) {
-    throw new Error(`Codex CLI quota/rate limit reached${codexModel ? ` for ${codexModel}` : ""}: ${summarizeCliFailure(lastError)}`);
-  }
-
-  throw new Error(`Codex CLI failed${codexModel ? ` for ${codexModel}` : ""}: ${summarizeCliFailure(lastError)}`);
-}
-
-function callAi(batch: ConvertedQuestion[]) {
-  return aiProvider === "codex" ? callCodex(batch) : callGemini(batch);
-}
-
 function applyGeminiAnswer(item: ConvertedQuestion, answer: GeminiAnswer) {
   const type = item.row.questionType;
   let classified = false;
@@ -1495,16 +1310,12 @@ function applyGeminiAnswer(item: ConvertedQuestion, answer: GeminiAnswer) {
   const nextDomain = normalizeText(answer.domain ?? "");
   const nextSkill = normalizeText(answer.skill ?? "");
   if (nextSection || nextDomain || nextSkill) {
-    const correctedTaxonomy = isValidTaxonomy(nextSection, nextDomain, nextSkill)
-      ? { section: nextSection, domain: nextDomain, skill: nextSkill }
-      : findTaxonomyForSkill(nextSection, nextSkill);
-
-    if (!correctedTaxonomy) {
+    if (!isValidTaxonomy(nextSection, nextDomain, nextSkill)) {
       geminiDebugLog.push({
         type: "invalid_answer",
         itemId: item.id,
         cacheKey: item.answerCacheKey,
-        reason: "AI returned invalid section/domain/skill taxonomy.",
+        reason: "Gemini returned invalid section/domain/skill taxonomy.",
         answer,
         payloadHints: getPayloadHints(item),
       });
@@ -1512,9 +1323,9 @@ function applyGeminiAnswer(item: ConvertedQuestion, answer: GeminiAnswer) {
       return { answered: false, classified: false };
     }
 
-    item.row.section = correctedTaxonomy.section;
-    item.row.domain = correctedTaxonomy.domain;
-    item.row.skill = correctedTaxonomy.skill;
+    item.row.section = nextSection;
+    item.row.domain = nextDomain;
+    item.row.skill = nextSkill;
     classified = true;
   }
 
@@ -1679,24 +1490,23 @@ function applySourceDataGate(items: ConvertedQuestion[]) {
 }
 
 function fillMissingAnswers(items: ConvertedQuestion[]) {
-  const cachePath = getAiCachePath();
+  const cachePath = path.join(outputDir, "reports", "gemini-answer-cache.json");
   const cache = loadGeminiCache(cachePath);
   const candidates = items.filter(isGeminiCandidate);
   const uniqueCandidates = [...new Map(candidates.map((item) => [item.answerCacheKey, item])).values()];
-  const offsetCandidates = aiOffset > 0 ? uniqueCandidates.slice(aiOffset) : uniqueCandidates;
-  const limitedCandidates = aiLimit > 0 ? offsetCandidates.slice(0, aiLimit) : offsetCandidates;
+  const limitedCandidates = geminiLimit > 0 ? uniqueCandidates.slice(0, geminiLimit) : uniqueCandidates;
   const limitedKeys = new Set(limitedCandidates.map((item) => item.answerCacheKey));
   let answered = 0;
   let classified = 0;
   let review = 0;
 
-  for (let index = 0; index < limitedCandidates.length; index += aiBatchSize) {
-    const batch = limitedCandidates.slice(index, index + aiBatchSize);
+  for (let index = 0; index < limitedCandidates.length; index += geminiBatchSize) {
+    const batch = limitedCandidates.slice(index, index + geminiBatchSize);
     const uncached = batch.filter((item) => !cachedAnswerSatisfiesItem(cache.get(item.answerCacheKey), item));
 
     if (uncached.length > 0) {
-      console.log(`${getAiProviderLabel()} batch ${index + 1}-${index + batch.length} of ${limitedCandidates.length}`);
-      const answers = callAi(uncached);
+      console.log(`Gemini batch ${index + 1}-${index + batch.length} of ${limitedCandidates.length}`);
+      const answers = callGemini(uncached);
       for (const answer of answers) {
         const matchedItem = uncached.find((item) => item.id === answer.id || item.answerCacheKey === answer.cacheKey);
         const cacheKey = matchedItem?.answerCacheKey ?? answer.cacheKey ?? answer.id;
@@ -1739,8 +1549,6 @@ function summarize(
   geminiStats: Pick<RunSummary, "geminiCandidates" | "geminiAnswered" | "geminiClassified" | "geminiNeedsReview">,
 ): RunSummary {
   const summary: RunSummary = {
-    aiProvider,
-    aiModel: aiProvider === "codex" ? `${codexModel || "default"}; CODEX_HOME=${codexHome}` : geminiModel,
     sources: {
       bluebooky: items.filter((item) => item.source === "bluebooky").length,
       satgpt: items.filter((item) => item.source === "satgpt").length,
@@ -1786,32 +1594,12 @@ function writeOutputs(
   }
 
   const readyRows: AdminQuestionUploadRow[] = [];
-  const readyProvenance: ReadyProvenanceEntry[] = [];
-  const readyProvenanceByFile = new Map<string, ReadyProvenanceEntry[]>();
   const reviewItems: ConvertedQuestion[] = [];
   const missingRequests: unknown[] = [];
 
   for (const [key, fileItems] of byFile) {
-    const fileReadyItems = fileItems.filter((item) => !item.skipped && item.issues.length === 0);
-    const fileReady = fileReadyItems.map((item) => item.row);
+    const fileReady = fileItems.filter((item) => !item.skipped && item.issues.length === 0).map((item) => item.row);
     const fileReview = fileItems.filter((item) => item.skipped || item.issues.length > 0);
-
-    for (const item of fileReadyItems) {
-      const provenance: ReadyProvenanceEntry = {
-        readyIndex: readyProvenance.length + 1,
-        source: item.source,
-        sourceFile: item.sourceFile,
-        sourceKey: key,
-        csvRowNumber: item.csvRowNumber,
-        section: item.row.section,
-        module: item.row.module,
-        questionType: item.row.questionType,
-        questionText: item.row.questionText,
-      };
-      readyProvenance.push(provenance);
-      readyProvenanceByFile.set(key, [...(readyProvenanceByFile.get(key) ?? []), provenance]);
-    }
-
     readyRows.push(...fileReady);
     reviewItems.push(...fileReview);
     writeJsonAtomic(path.join(adminDir, `${key}.ready.json`), fileReady);
@@ -1846,54 +1634,17 @@ function writeOutputs(
       issues: item.issues,
       row: item.row,
       promptContext: item.promptContext,
-      cachedAiAnswer: loadGeminiCache(getAiCachePath(reportDir)).get(item.answerCacheKey) ?? null,
+      cachedGeminiAnswer: loadGeminiCache(path.join(reportDir, "gemini-answer-cache.json")).get(item.answerCacheKey) ?? null,
       payloadHints: getPayloadHints(item),
     }));
 
-  const readyProvenanceGroups: ReadyProvenanceGroup[] = [...readyProvenanceByFile.entries()].map(([sourceKey, entries]) => {
-    const first = entries[0];
-    const sectionCounts = new Map<string, { section: string; module: number; count: number }>();
-    for (const entry of entries) {
-      const sectionKey = `${entry.section}::${entry.module}`;
-      const current = sectionCounts.get(sectionKey) ?? { section: entry.section, module: entry.module, count: 0 };
-      current.count += 1;
-      sectionCounts.set(sectionKey, current);
-    }
-
-    return {
-      source: first.source,
-      sourceFile: first.sourceFile,
-      sourceKey,
-      readyIndexes: {
-        first: entries[0].readyIndex,
-        last: entries[entries.length - 1].readyIndex,
-        count: entries.length,
-      },
-      csvRows: {
-        first: Math.min(...entries.map((entry) => entry.csvRowNumber)),
-        last: Math.max(...entries.map((entry) => entry.csvRowNumber)),
-      },
-      sections: [...sectionCounts.values()],
-    };
-  });
-
   writeJsonAtomic(path.join(adminDir, "all.ready.json"), readyRows);
   writeJsonAtomic(path.join(adminDir, "all.needs_review.json"), reviewItems);
-  writeJsonAtomic(path.join(reportDir, "ready-provenance.json"), {
-    summary: {
-      ready: readyRows.length,
-      sources: readyProvenanceGroups.length,
-    },
-    groups: readyProvenanceGroups,
-    items: readyProvenance,
-  });
   writeJsonAtomic(path.join(reportDir, "conversion-report.json"), summary);
   writeJsonAtomic(path.join(reportDir, "errors.json"), conversionErrors);
   writeJsonAtomic(path.join(reportDir, "source-data-errors.json"), sourceDataErrors);
-  writeJsonAtomic(path.join(reportDir, `${aiProvider}-needs-review.json`), geminiNeedsReviewItems);
-  writeJsonAtomic(path.join(reportDir, `${aiProvider}-debug-log.json`), geminiDebugLog);
-  writeJsonAtomic(path.join(reportDir, "ai-needs-review.json"), geminiNeedsReviewItems);
-  writeJsonAtomic(path.join(reportDir, "ai-debug-log.json"), geminiDebugLog);
+  writeJsonAtomic(path.join(reportDir, "gemini-needs-review.json"), geminiNeedsReviewItems);
+  writeJsonAtomic(path.join(reportDir, "gemini-debug-log.json"), geminiDebugLog);
   writeTextAtomic(path.join(reportDir, "missing-answer-requests.jsonl"), `${missingRequests.map((request) => JSON.stringify(request)).join("\n")}\n`);
 }
 

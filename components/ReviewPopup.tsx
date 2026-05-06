@@ -182,9 +182,9 @@ export default function ReviewPopup({
                 <QuestionNumberBar questionNumber={questionNumber} viewerTheme={viewerTheme} />
 
                 <div className={`testing-question-copy mt-3 px-4 pb-4 pt-4 text-[14px] leading-relaxed sm:px-6 sm:text-[15px] ${viewerTheme.readingFontClass} ${viewerTheme.promptClass}`}>
-                  <p>
+                  <div>
                     {renderHtmlLatexContent(q.questionText || "")}
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -194,9 +194,9 @@ export default function ReviewPopup({
                 <div className="overflow-hidden rounded-2xl border-2 border-ink-fg bg-surface-white p-6">
                   <div className="mb-4 text-xs font-bold uppercase tracking-[0.16em] text-ink-fg/70">Explanation</div>
                     {expandedExplanation ? (
-                      <p className="whitespace-pre-wrap font-[Georgia,serif] text-[15px] leading-relaxed text-ink-fg">
+                      <div className="whitespace-pre-wrap font-[Georgia,serif] text-[15px] leading-relaxed text-ink-fg">
                         {renderHtmlLatexContent(expandedExplanation || "")}
-                      </p>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 text-sm text-ink-fg/70">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-ink-fg/20 border-t-ink-fg" />

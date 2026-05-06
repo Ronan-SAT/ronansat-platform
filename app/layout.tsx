@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, DM_Sans, Geist_Mono } from "next/font/google";
 import Script from "next/script";
+import { Bricolage_Grotesque, DM_Sans, Geist_Mono } from "next/font/google";
 
 import RouteProgressBar from "@/components/RouteProgressBar";
 import AppShell from "@/components/AppShell";

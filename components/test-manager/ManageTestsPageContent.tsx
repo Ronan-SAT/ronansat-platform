@@ -9,6 +9,7 @@ import { CompactPagination } from "@/components/ui/CompactPagination";
 import { PaginatedStickyTableShell } from "@/components/ui/PaginatedStickyTableShell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TokenLockManager } from "@/components/test-manager/TokenLockManager";
+import { formatAppDateTime } from "@/lib/dateFormat";
 import { fetchTestManagerCatalogPage } from "@/lib/services/testManagerCatalogClient";
 import type { TestManagerCatalogRow, TestManagerCatalogSearchScope, TestManagerCatalogSortOption, TestManagerReviewFilter } from "@/types/testManager";
 
@@ -71,15 +72,13 @@ function getSearchPlaceholder(scope: TestManagerCatalogSearchScope) {
 }
 
 function formatUpdatedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown";
-  }
-
-  return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} ${date.toLocaleTimeString(undefined, {
+  return formatAppDateTime(value, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  })}`;
+  });
 }
 
 function getDifficultyClassName(difficulty: TestManagerCatalogRow["difficulty"]) {
